@@ -59,8 +59,8 @@ function switchTab(tab) {
   document.querySelectorAll(".tab-content").forEach((el) => el.classList.remove("active"));
   document.getElementById(`nav-${tab}`)?.classList.add("active");
   document.getElementById(`tab-${tab}`)?.classList.add("active");
-  const titles = { dashboard: "Dashboard", jobs: "Danh sách Jobs", config: "Cấu hình", logs: "Nhật ký", tools: "🔧 Công cụ" };
-  document.getElementById("page-title").textContent = titles[tab] || tab;
+  const titles = { dashboard: "Dashboard", jobs: "Job History", config: "Settings", logs: "System Stream", tools: "Tools" };
+  document.getElementById("page-title").textContent = titles[tab] || tab.toUpperCase();
 }
 
 document.querySelectorAll(".nav-item").forEach((el) => {
@@ -189,7 +189,7 @@ function getSheetName(selectorId, fallbackInputId) {
 
 // ===== STATUS BADGE HELPER =====
 function statusBadge(status) {
-  const labels = { pending: "⏳ Chờ", running: "⚡ Đang chạy", done: "✅ Xong", error: "❌ Lỗi", cancelled: "🚫 Hủy" };
+  const labels = { pending: "WAITING", running: "RUNNING", done: "STABLE", error: "FAILED", cancelled: "ABORTED" };
   return `<span class="job-status-badge badge-${status}">${labels[status] || status}</span>`;
 }
 
@@ -199,38 +199,34 @@ function formatTime(iso) {
 }
 
 // ===== RENDER JOBS =====
-function renderJobItem(job, containerId = null) {
+function renderJobItem(job) {
   const pct = job.progress.total > 0 ? Math.round((job.progress.current / job.progress.total) * 100) : (job.status === "done" ? 100 : 0);
 
   const actionsHtml = (() => {
     const btns = [];
-    btns.push(`<button class="btn btn-ghost btn-sm" onclick="openJobDetail('${job.id}')">🔍 Chi tiết</button>`);
+    btns.push(`<button class="btn btn-ghost btn-sm" onclick="openJobDetail('${job.id}')">INSPECT</button>`);
     if (job.status === "pending") {
-      btns.push(`<button class="btn btn-danger btn-sm" onclick="deleteJob('${job.id}')">🗑 Xóa</button>`);
-    }
-    if (job.status === "done" && job.resultsCount > 0) {
-      btns.push(`<button class="btn btn-success btn-sm" onclick="openJobDetail('${job.id}')">🔗 ${job.resultsCount} Links</button>`);
+      btns.push(`<button class="btn btn-danger btn-sm" onclick="deleteJob('${job.id}')">KILL</button>`);
     }
     return btns.join("");
   })();
 
   return `
     <div class="job-item status-${job.status}" id="job-item-${job.id}">
-      <div class="job-header">
-        <span class="job-name">${escHtml(job.name)}</span>
+      <div class="job-name-cell">
+        <div class="job-name">${escHtml(job.name || 'Unnamed Process')}</div>
+        <div class="job-meta">ID: ${job.id.slice(0,8)} | T: ${formatTime(job.createdAt)}</div>
+      </div>
+      <div class="job-status-cell">
         ${statusBadge(job.status)}
       </div>
-      <div class="job-meta">
-        <span>🕐 Tạo: ${formatTime(job.createdAt)}</span>
-        ${job.startedAt ? `<span>▶ Bắt đầu: ${formatTime(job.startedAt)}</span>` : ""}
-        ${job.completedAt ? `<span>🏁 Xong: ${formatTime(job.completedAt)}</span>` : ""}
-        ${job.status === "running" ? `<span>📦 ${job.progress.current}/${job.progress.total} nhóm</span>` : ""}
-        ${job.error ? `<span style="color:var(--error)">⚠️ ${escHtml(job.error)}</span>` : ""}
+      <div class="job-progress-cell">
+        <div class="job-meta">${job.progress.current}/${job.progress.total}</div>
+        <div class="job-progress-bar">
+          <div class="job-progress-fill" style="width: ${pct}%"></div>
+        </div>
       </div>
-      <div class="job-progress-bar">
-        <div class="job-progress-fill" style="width: ${pct}%"></div>
-      </div>
-      <div class="job-actions">${actionsHtml}</div>
+      <div class="job-actions-cell">${actionsHtml}</div>
     </div>
   `;
 }
@@ -244,7 +240,7 @@ function renderJobLists() {
   const activeEl = document.getElementById("active-jobs-list");
   if (activeEl) {
     if (activeJobs.length === 0) {
-      activeEl.innerHTML = '<div class="empty-state">Không có job nào đang chạy hoặc chờ.</div>';
+      activeEl.innerHTML = '<div class="empty-state">NO_ACTIVE_PROCESSES</div>';
     } else {
       activeEl.innerHTML = activeJobs.map((j) => renderJobItem(j)).join("");
     }
@@ -257,7 +253,7 @@ function renderJobLists() {
     if (fStatus) filtered = filtered.filter((j) => j.status === fStatus);
 
     if (filtered.length === 0) {
-      allEl.innerHTML = `<div class="empty-state">Không có job nào${fStatus ? " với trạng thái này" : ""}.</div>`;
+      allEl.innerHTML = `<div class="empty-state">NO_HISTORY_FOUND</div>`;
     } else {
       allEl.innerHTML = [...filtered].reverse().map((j) => renderJobItem(j)).join("");
     }
@@ -382,7 +378,7 @@ document.getElementById("form-add-job").addEventListener("submit", async (e) => 
 
 // ===== DELETE JOB =====
 async function deleteJob(id) {
-  if (!confirm("Xóa job này?")) return;
+  if (!confirm("TERMINATE_PROCESS? This action cannot be undone.")) return;
   try {
     await API.del(`/run/jobs/${id}`);
     toast("Đã xóa job", "success");
@@ -437,7 +433,7 @@ function appendLogLine(entry) {
   const div = document.createElement("div");
   div.className = `log-line log-${entry.level || "info"}`;
   div.innerHTML = `
-    <span class="log-ts">${new Date(entry.ts || Date.now()).toLocaleTimeString("vi-VN")}</span>
+    <span class="log-ts">${new Date(entry.ts || Date.now()).toLocaleTimeString("en-GB")}</span>
     ${entry.jobId ? `<span class="log-job-id">[${entry.jobId.slice(0,8)}]</span>` : ""}
     <span class="log-msg">${escHtml(entry.message)}</span>
   `;
@@ -807,31 +803,31 @@ document.getElementById("form-push-data").addEventListener("submit", async (e) =
     });
 
     document.getElementById("pd-result-title").textContent =
-      `Kết quả: ✅ ${res.success} thành công | ❌ ${res.fail} thất bại`;
+      `RESULTS: OK:${res.success} / FAIL:${res.fail}`;
 
     document.getElementById("pd-result-body").innerHTML =
       `<table class="result-table">
-        <thead><tr><th>#</th><th>Service</th><th>Spreadsheet ID</th><th>Trạng thái</th><th>Chi tiết</th></tr></thead>
+        <thead><tr><th>#</th><th>SERVICE</th><th>SPREADSHEET_ID</th><th>STATUS</th><th>META</th></tr></thead>
         <tbody>
           ${res.details.map((d, i) => `<tr>
             <td>${i + 1}</td>
             <td><code>${escHtml(d.job.service)}</code></td>
             <td class="mono" style="font-size:0.75rem">${escHtml(d.job.spreadsheetId)}</td>
             <td>${d.status === "success"
-              ? `<span class="tag-found">✅ OK</span>`
-              : `<span class="tag-notfound">❌ Lỗi</span>`}
+              ? `<span class="tag-found">STABLE</span>`
+              : `<span class="tag-notfound">ERROR</span>`}
             </td>
-            <td style="font-size:0.78rem;color:var(--text-secondary)">${d.rows != null ? `${d.rows} dòng` : escHtml(d.error || "")}</td>
+            <td style="font-size:0.78rem;color:var(--text-dim)">${d.rows != null ? `${d.rows} lines` : escHtml(d.error || "")}</td>
           </tr>`).join("")}
         </tbody>
       </table>` + renderToolLogs(res.logs);
 
     document.getElementById("pd-result-card").classList.remove("hidden");
-    toast(`✅ ${res.success} jobs thành công`, res.fail === 0 ? "success" : "warning");
+    toast(`EXEC_COMPLETE: ${res.success} STABLE`, res.fail === 0 ? "success" : "warning");
   } catch (err) {
-    toast(`Lỗi: ${err.message}`, "error");
+    toast(`EXEC_ERROR: ${err.message}`, "error");
   } finally {
-    setBtnLoading("btn-pd-submit", false, "📤 Bắt đầu push");
+    setBtnLoading("btn-pd-submit", false, "PUSH_DATA");
   }
 });
 
@@ -840,10 +836,10 @@ document.getElementById("form-update-status").addEventListener("submit", async (
   e.preventDefault();
   const sheetName = document.getElementById("us-sheet-name").value.trim();
   const urls = document.getElementById("us-urls").value.trim();
-  if (!sheetName) return toast("Vui lòng nhập tên sheet", "error");
-  if (!urls) return toast("Vui lòng nhập danh sách URLs", "error");
+  if (!sheetName) return toast("MISSING_SHEET_NAME", "error");
+  if (!urls) return toast("MISSING_URL_LIST", "error");
 
-  setBtnLoading("btn-us-submit", true, "🏷️ Cập nhật trạng thái");
+  setBtnLoading("btn-us-submit", true, "UPDATE_RECORDS");
   try {
     const res = await API.post("/tools/update-status", {
       sheetName,
@@ -854,32 +850,32 @@ document.getElementById("form-update-status").addEventListener("submit", async (
     });
 
     document.getElementById("us-result-title").textContent =
-      `Kết quả: ${res.updated} dòng đã cập nhật`;
+      `RESULTS: ${res.updated} RECORDS_UPDATED`;
 
     const notFoundHtml = res.notFound && res.notFound.length > 0
-      ? `<div style="margin-top:12px"><div class="section-title">Không tìm thấy (${res.notFound.length})</div>
-         ${res.notFound.map((u) => `<div style="font-size:0.82rem;color:var(--error);padding:3px 0">❌ ${escHtml(u)}</div>`).join("")}</div>`
+      ? `<div style="margin-top:12px"><div class="section-title">NOT_FOUND (${res.notFound.length})</div>
+         ${res.notFound.map((u) => `<div style="font-size:0.82rem;color:var(--error);padding:3px 0">ERR: ${escHtml(u)}</div>`).join("")}</div>`
       : "";
 
     document.getElementById("us-result-body").innerHTML =
-      `<div style="display:flex;gap:20px;flex-wrap:wrap;margin-bottom:12px">
-        <div class="stat-card" style="padding:14px 20px">
-          <div class="stat-icon">✅</div>
-          <div class="stat-body"><div class="stat-value">${res.updated}</div><div class="stat-label">Dòng đã update</div></div>
+      `<div style="display:flex;gap:12px;margin-bottom:12px">
+        <div class="stat-card">
+          <div class="stat-label">Updated</div>
+          <div class="stat-value">${res.updated}</div>
         </div>
-        <div class="stat-card" style="padding:14px 20px">
-          <div class="stat-icon">❌</div>
-          <div class="stat-body"><div class="stat-value">${res.notFound?.length || 0}</div><div class="stat-label">Không tìm thấy</div></div>
+        <div class="stat-card">
+          <div class="stat-label">Missing</div>
+          <div class="stat-value">${res.notFound?.length || 0}</div>
         </div>
       </div>
       ${notFoundHtml}
       ${renderToolLogs(res.logs)}`;
 
     document.getElementById("us-result-card").classList.remove("hidden");
-    toast(`✅ Đã update ${res.updated} dòng`, "success");
+    toast(`SYNC_COMPLETE: ${res.updated} UPDATED`, "success");
   } catch (err) {
-    toast(`Lỗi: ${err.message}`, "error");
+    toast(`SYNC_ERROR: ${err.message}`, "error");
   } finally {
-    setBtnLoading("btn-us-submit", false, "🏷️ Cập nhật trạng thái");
+    setBtnLoading("btn-us-submit", false, "UPDATE_RECORDS");
   }
 });

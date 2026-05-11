@@ -3,232 +3,288 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Sheets Automation Dashboard</title>
-  <meta name="description" content="Quản lý tự động tạo Google Sheets theo tháng, theo dõi tiến trình realtime." />
+  <title>Sheets Automation — Terminal</title>
+  <meta name="description" content="High-density Google Sheets Automation Dashboard." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <!-- SIDEBAR -->
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-logo">
-      <div class="logo-icon">⚡</div>
-      <span class="logo-text">SheetsBot</span>
+      <div class="logo-icon">S</div>
+      <span class="logo-text">SHEETS_BOT</span>
     </div>
     <nav class="sidebar-nav">
       <a href="#" class="nav-item active" data-tab="dashboard" id="nav-dashboard">
-        <span class="nav-icon">📊</span>
+        <span class="nav-icon">▢</span>
         <span>Dashboard</span>
       </a>
       <a href="#" class="nav-item" data-tab="jobs" id="nav-jobs">
-        <span class="nav-icon">📋</span>
-        <span>Danh sách Jobs</span>
+        <span class="nav-icon">▤</span>
+        <span>Jobs</span>
         <span class="badge" id="badge-jobs">0</span>
       </a>
+      <a href="#" class="nav-item" data-tab="tools" id="nav-tools">
+        <span class="nav-icon">⚙</span>
+        <span>Tools</span>
+      </a>
       <a href="#" class="nav-item" data-tab="config" id="nav-config">
-        <span class="nav-icon">⚙️</span>
-        <span>Cấu hình</span>
+        <span class="nav-icon">◈</span>
+        <span>Settings</span>
       </a>
       <a href="#" class="nav-item" data-tab="logs" id="nav-logs">
-        <span class="nav-icon">📟</span>
-        <span>Nhật ký</span>
-        <span class="badge badge-red hidden" id="badge-logs">0</span>
-      </a>
-      <a href="#" class="nav-item" data-tab="tools" id="nav-tools">
-        <span class="nav-icon">🔧</span>
-        <span>Công cụ</span>
+        <span class="nav-icon">⧉</span>
+        <span>Logs</span>
       </a>
     </nav>
     <div class="sidebar-footer">
       <div class="status-dot" id="status-dot"></div>
-      <span id="status-text">Đang kết nối...</span>
+      <span id="status-text">System Ready</span>
     </div>
   </aside>
 
   <!-- MAIN -->
   <main class="main">
-    <!-- HEADER -->
     <header class="topbar">
-      <div class="topbar-left">
-        <h1 id="page-title">Dashboard</h1>
-      </div>
+      <h1 id="page-title">Dashboard</h1>
       <div class="topbar-right">
         <div class="auth-status" id="auth-status">
           <span class="dot dot-warning"></span>
-          <span>Đang tải...</span>
+          <span>AUTH_WAITING</span>
         </div>
-        <button class="btn btn-primary" id="btn-start-queue">
-          <span>▶ Chạy Queue</span>
-        </button>
+        <button class="btn btn-primary" id="btn-start-queue">RUN_QUEUE</button>
       </div>
     </header>
+
+    <!-- STATS -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <span class="stat-label">Total Jobs</span>
+        <span class="stat-value" id="stat-total">0</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Pending</span>
+        <span class="stat-value" id="stat-pending">0</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Running</span>
+        <span class="stat-value" id="stat-running">0</span>
+      </div>
+      <div class="stat-card" style="color:var(--success)">
+        <span class="stat-label">Completed</span>
+        <span class="stat-value" id="stat-done">0</span>
+      </div>
+      <div class="stat-card" style="color:var(--error)">
+        <span class="stat-label">Errors</span>
+        <span class="stat-value" id="stat-error">0</span>
+      </div>
+    </div>
 
     <!-- TABS -->
 
     <!-- ===== DASHBOARD ===== -->
     <section class="tab-content active" id="tab-dashboard">
-      <div class="stats-grid">
-        <div class="stat-card">
-          <div class="stat-icon">📋</div>
-          <div class="stat-body">
-            <div class="stat-value" id="stat-total">0</div>
-            <div class="stat-label">Tổng Jobs</div>
-          </div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-icon pending-icon">⏳</div>
-          <div class="stat-body">
-            <div class="stat-value" id="stat-pending">0</div>
-            <div class="stat-label">Chờ xử lý</div>
-          </div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-icon running-icon">⚡</div>
-          <div class="stat-body">
-            <div class="stat-value" id="stat-running">0</div>
-            <div class="stat-label">Đang chạy</div>
-          </div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-icon success-icon">✅</div>
-          <div class="stat-body">
-            <div class="stat-value" id="stat-done">0</div>
-            <div class="stat-label">Hoàn thành</div>
-          </div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-icon error-icon">❌</div>
-          <div class="stat-body">
-            <div class="stat-value" id="stat-error">0</div>
-            <div class="stat-label">Lỗi</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Add Job Form -->
       <div class="card">
         <div class="card-header">
-          <h2>➕ Thêm Job mới</h2>
+          <h2>Add Task</h2>
         </div>
         <div class="card-body">
-          <form id="form-add-job" class="add-job-form">
+          <form id="form-add-job">
             <div class="form-row">
               <div class="form-group">
-                <label for="job-name">Tên job</label>
-                <input type="text" id="job-name" placeholder="VD: Tháng 5 - Batch 1" />
+                <label for="job-name">Internal Label</label>
+                <input type="text" id="job-name" placeholder="Job description..." />
               </div>
               <div class="form-group">
-                <label>Tên Sheet <span class="required">*</span></label>
-                <div class="sheet-selector" id="ss-job"
-                     data-target="job-sheet-name"
-                     data-source-ref="job-source-sheet-id">
+                <label>Target Sheet</label>
+                <div class="sheet-selector" id="ss-job" data-target="job-sheet-name" data-source-ref="job-source-sheet-id">
                   <div class="sheet-selector-row">
-                    <select class="ss-select select-input" title="Chọn tab sheet">
-                      <option value="">-- Chọn hoặc tải danh sách --</option>
-                    </select>
-                    <button type="button" class="btn btn-ghost btn-sm ss-reload" title="Tải lại">🔄</button>
+                    <select class="ss-select select-input"></select>
+                    <button type="button" class="btn btn-ghost btn-sm ss-reload">RELOAD</button>
                   </div>
-                  <input type="text" class="ss-custom hidden" id="job-sheet-name"
-                         placeholder="Nhập tên sheet tùy chỉnh..." required />
+                  <input type="text" class="ss-custom hidden" id="job-sheet-name" placeholder="Custom sheet name..." required />
                 </div>
               </div>
             </div>
-            <div class="form-row collapse-row" id="job-advanced-row">
-              <div class="form-group">
-                <label for="job-source-sheet-id">Source Sheet ID (tùy chọn)</label>
-                <input type="text" id="job-source-sheet-id" placeholder="Để trống = dùng config mặc định" />
-              </div>
-              <div class="form-group">
-                <label for="job-template-id">Template ID (tùy chọn)</label>
-                <input type="text" id="job-template-id" placeholder="Để trống = dùng config mặc định" />
-              </div>
-              <div class="form-group">
-                <label for="job-folder-id">Folder ID (tùy chọn)</label>
-                <input type="text" id="job-folder-id" placeholder="Để trống = dùng config mặc định" />
+            
+            <div class="collapse-row" id="job-advanced-row">
+              <div class="form-row" style="margin-top:16px">
+                <div class="form-group">
+                  <label for="job-source-sheet-id">Source ID</label>
+                  <input type="text" id="job-source-sheet-id" class="mono" />
+                </div>
+                <div class="form-group">
+                  <label for="job-template-id">Template ID</label>
+                  <input type="text" id="job-template-id" class="mono" />
+                </div>
+                <div class="form-group">
+                  <label for="job-folder-id">Folder ID</label>
+                  <input type="text" id="job-folder-id" class="mono" />
+                </div>
               </div>
             </div>
+
             <div class="form-actions">
-              <button type="button" class="btn btn-ghost" id="btn-toggle-advanced">⚙️ Tùy chọn nâng cao</button>
-              <button type="submit" class="btn btn-primary">➕ Thêm Job</button>
+              <button type="button" class="btn btn-ghost btn-sm" id="btn-toggle-advanced">ADVANCED_CONFIG</button>
+              <button type="submit" class="btn btn-primary">CREATE_TASK</button>
             </div>
           </form>
         </div>
       </div>
 
-      <!-- Active Jobs -->
-      <div class="card">
-        <div class="card-header">
-          <h2>🔄 Jobs đang hoạt động</h2>
-        </div>
-        <div class="card-body" id="active-jobs-list">
-          <div class="empty-state">Chưa có job nào. Thêm job ở trên để bắt đầu.</div>
-        </div>
+      <div class="section-title">Active Processes</div>
+      <div id="active-jobs-list" style="border:1px solid var(--border-subtle)">
+        <div class="empty-state">No active processes.</div>
       </div>
     </section>
 
-    <!-- ===== JOBS ===== -->
+    <!-- ===== JOBS LIST ===== -->
     <section class="tab-content" id="tab-jobs">
       <div class="card">
         <div class="card-header">
-          <h2>📋 Tất cả Jobs</h2>
-          <div class="card-actions">
-            <select id="filter-status" class="select-input">
-              <option value="">Tất cả</option>
-              <option value="pending">Chờ xử lý</option>
-              <option value="running">Đang chạy</option>
-              <option value="done">Hoàn thành</option>
-              <option value="error">Lỗi</option>
-            </select>
-          </div>
+          <h2>Job History</h2>
+          <select id="filter-status" class="select-input" style="width:140px">
+            <option value="">ALL_STATUS</option>
+            <option value="pending">PENDING</option>
+            <option value="running">RUNNING</option>
+            <option value="done">DONE</option>
+            <option value="error">ERROR</option>
+          </select>
         </div>
-        <div class="card-body" id="all-jobs-list">
-          <div class="empty-state">Chưa có job nào.</div>
+        <div id="all-jobs-list"></div>
+      </div>
+    </section>
+
+    <!-- ===== TOOLS ===== -->
+    <section class="tab-content" id="tab-tools">
+      <div class="tool-tabs">
+        <div class="tool-tab active" data-tool="customer-confirmed">CONFIRMED_CLIENTS</div>
+        <div class="tool-tab" data-tool="get-url">URL_FETCHER</div>
+        <div class="tool-tab" data-tool="push-data">DATA_PUSH</div>
+        <div class="tool-tab" data-tool="update-status">STATUS_UPDATE</div>
+      </div>
+
+      <!-- KHÁCH CHỐT -->
+      <div class="tool-panel active" id="tool-customer-confirmed">
+        <form id="form-customer-confirmed">
+          <div class="form-row">
+            <div class="form-group">
+              <label>Target Sheet</label>
+              <div class="sheet-selector" id="ss-cc" data-target="cc-sheet-name" data-source-ref="cc-source-sheet-id">
+                <div class="sheet-selector-row">
+                  <select class="ss-select select-input"></select>
+                  <button type="button" class="btn btn-ghost btn-sm ss-reload">RELOAD</button>
+                </div>
+                <input type="text" class="ss-custom hidden" id="cc-sheet-name" required />
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Source ID</label>
+              <input type="text" id="cc-source-sheet-id" class="mono" />
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary" id="btn-cc-submit">EXEC_SEARCH</button>
+        </form>
+        <div class="card hidden" id="cc-result-card" style="margin-top:24px">
+          <div class="card-header"><h2 id="cc-result-title">RESULTS</h2></div>
+          <div id="cc-result-body"></div>
+        </div>
+      </div>
+
+      <!-- URL_FETCHER -->
+      <div class="tool-panel" id="tool-get-url">
+        <form id="form-get-url">
+          <div class="form-group">
+            <label>Filename List (New line separated)</label>
+            <textarea id="gu-items" class="mono textarea" required></textarea>
+          </div>
+          <button type="submit" class="btn btn-primary" id="btn-gu-submit">RESOLVE_URLS</button>
+        </form>
+        <div class="card hidden" id="gu-result-card" style="margin-top:24px">
+          <div class="card-header">
+            <h2 id="gu-result-title">RESULTS</h2>
+            <button class="btn btn-ghost btn-sm" id="btn-gu-copy-all">COPY_ALL</button>
+          </div>
+          <div id="gu-result-body"></div>
+        </div>
+      </div>
+
+      <!-- More tools panels would follow same pattern... -->
+      <div class="tool-panel" id="tool-push-data">
+         <form id="form-push-data">
+            <div class="form-group">
+              <label>Jobs Payload (JSON)</label>
+              <textarea id="pd-jobs" class="mono textarea" required placeholder='[{"service":"entity","id":"...","spreadsheetId":"..."}]'></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary" id="btn-pd-submit">PUSH_DATA</button>
+         </form>
+         <div class="card hidden" id="pd-result-card" style="margin-top:24px">
+            <div class="card-header"><h2 id="pd-result-title">RESULTS</h2></div>
+            <div id="pd-result-body"></div>
+         </div>
+      </div>
+
+      <div class="tool-panel" id="tool-update-status">
+        <form id="form-update-status">
+          <div class="form-row">
+            <div class="form-group">
+              <label>Target Sheet</label>
+              <div class="sheet-selector" id="ss-us" data-target="us-sheet-name" data-source-ref="us-source-sheet-id">
+                <div class="sheet-selector-row">
+                  <select class="ss-select select-input"></select>
+                  <button type="button" class="btn btn-ghost btn-sm ss-reload">RELOAD</button>
+                </div>
+                <input type="text" class="ss-custom hidden" id="us-sheet-name" required />
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Status Text</label>
+              <input type="text" id="us-status-text" value="Đang chạy" />
+            </div>
+          </div>
+          <div class="form-group">
+            <label>URLs</label>
+            <textarea id="us-urls" class="mono textarea" required></textarea>
+          </div>
+          <button type="submit" class="btn btn-primary" id="btn-us-submit">UPDATE_RECORDS</button>
+        </form>
+        <div class="card hidden" id="us-result-card" style="margin-top:24px">
+          <div class="card-header"><h2 id="us-result-title">RESULTS</h2></div>
+          <div id="us-result-body"></div>
         </div>
       </div>
     </section>
 
-    <!-- ===== CONFIG ===== -->
+    <!-- ===== SETTINGS ===== -->
     <section class="tab-content" id="tab-config">
       <div class="card">
-        <div class="card-header">
-          <h2>⚙️ Cấu hình mặc định</h2>
-          <p class="card-subtitle">Các giá trị này được sử dụng khi bạn không chỉ định cụ thể cho từng job.</p>
-        </div>
+        <div class="card-header"><h2>Default Configuration</h2></div>
         <div class="card-body">
           <form id="form-config">
             <div class="form-group">
-              <label for="cfg-template-id">Template Spreadsheet ID</label>
-              <input type="text" id="cfg-template-id" class="mono" placeholder="1gCEhAJ0Y..." />
+              <label>Template ID</label>
+              <input type="text" id="cfg-template-id" class="mono" />
             </div>
             <div class="form-group">
-              <label for="cfg-folder-id">Folder ID (Drive)</label>
-              <input type="text" id="cfg-folder-id" class="mono" placeholder="13kD0llW..." />
+              <label>Default Folder ID</label>
+              <input type="text" id="cfg-folder-id" class="mono" />
             </div>
             <div class="form-group">
-              <label for="cfg-source-sheet-id">Source Spreadsheet ID</label>
-              <input type="text" id="cfg-source-sheet-id" class="mono" placeholder="1jeh9MTC..." />
+              <label>Source Sheet ID</label>
+              <input type="text" id="cfg-source-sheet-id" class="mono" />
             </div>
             <div class="form-group">
-              <label for="cfg-name-map">Name Map (JSON)</label>
-              <textarea id="cfg-name-map" class="mono textarea" rows="8" placeholder='{"Podcast": "PODCAST", ...}'></textarea>
+              <label>Name Map (JSON)</label>
+              <textarea id="cfg-name-map" class="mono textarea" rows="6"></textarea>
             </div>
             <div class="form-actions">
-              <button type="button" class="btn btn-ghost" id="btn-reset-config">↩ Reset về mặc định</button>
-              <button type="submit" class="btn btn-primary">💾 Lưu cấu hình</button>
+              <button type="button" class="btn btn-ghost" id="btn-reset-config">RESET_DEFAULTS</button>
+              <button type="submit" class="btn btn-primary">SAVE_SETTINGS</button>
             </div>
           </form>
-        </div>
-      </div>
-
-      <!-- Auth Status Card -->
-      <div class="card">
-        <div class="card-header">
-          <h2>🔑 Trạng thái xác thực Google</h2>
-        </div>
-        <div class="card-body" id="auth-detail-panel">
-          <div class="loading-row">Đang tải...</div>
         </div>
       </div>
     </section>
@@ -237,221 +293,24 @@
     <section class="tab-content" id="tab-logs">
       <div class="card logs-card">
         <div class="card-header">
-          <h2>📟 Nhật ký realtime</h2>
+          <h2>SYSTEM_STREAM</h2>
           <div class="card-actions">
-            <select id="filter-log-job" class="select-input">
-              <option value="">Tất cả jobs</option>
-            </select>
-            <button class="btn btn-ghost" id="btn-clear-logs">🗑 Xóa</button>
+            <button class="btn btn-ghost btn-sm" id="btn-clear-logs">FLUSH</button>
           </div>
         </div>
-        <div class="log-container" id="log-container">
-          <div class="log-empty">Chờ log từ server...</div>
-        </div>
+        <div class="log-container" id="log-container"></div>
       </div>
-    </section>
-
-    <!-- ===== TOOLS ===== -->
-    <section class="tab-content" id="tab-tools">
-
-      <!-- Tool Tabs -->
-      <div class="tool-tabs">
-        <button class="tool-tab active" data-tool="customer-confirmed" id="ttab-customer-confirmed">👥 Khách chốt</button>
-        <button class="tool-tab" data-tool="get-url" id="ttab-get-url">🔗 Tra link file</button>
-        <button class="tool-tab" data-tool="push-data" id="ttab-push-data">📤 Push data</button>
-        <button class="tool-tab" data-tool="update-status" id="ttab-update-status">🏷️ Update trạng thái</button>
-      </div>
-
-      <!-- ===== TOOL: KHÁCH CHỐT ===== -->
-      <div class="tool-panel active" id="tool-customer-confirmed">
-        <div class="card">
-          <div class="card-header">
-            <h2>👥 Tìm URL khách chốt</h2>
-            <p class="card-subtitle">Quét sheet, tìm các URL có trạng thái "khách chốt" và match với file Drive tương ứng.</p>
-          </div>
-          <div class="card-body">
-            <form id="form-customer-confirmed">
-              <div class="form-row">
-                <div class="form-group">
-                  <label>Tên Sheet <span class="required">*</span></label>
-                  <div class="sheet-selector" id="ss-cc"
-                       data-target="cc-sheet-name"
-                       data-source-ref="cc-source-sheet-id">
-                    <div class="sheet-selector-row">
-                      <select class="ss-select select-input" title="Chọn tab sheet">
-                        <option value="">-- Chọn hoặc tải danh sách --</option>
-                      </select>
-                      <button type="button" class="btn btn-ghost btn-sm ss-reload" title="Tải lại">🔄</button>
-                    </div>
-                    <input type="text" class="ss-custom hidden" id="cc-sheet-name"
-                           placeholder="Nhập tên sheet tùy chỉnh..." required />
-                  </div>
-                </div>
-                <div class="form-group">
-                  <label for="cc-source-sheet-id">Source Sheet ID</label>
-                  <input type="text" id="cc-source-sheet-id" class="mono" placeholder="Để trống = dùng config" />
-                </div>
-                <div class="form-group">
-                  <label for="cc-folder-id">Folder ID</label>
-                  <input type="text" id="cc-folder-id" class="mono" placeholder="Để trống = dùng config" />
-                </div>
-              </div>
-              <div class="form-actions">
-                <button type="submit" class="btn btn-primary" id="btn-cc-submit">🔍 Tìm khách chốt</button>
-              </div>
-            </form>
-          </div>
-        </div>
-        <div class="card hidden" id="cc-result-card">
-          <div class="card-header">
-            <h2 id="cc-result-title">Kết quả</h2>
-          </div>
-          <div class="card-body" id="cc-result-body"></div>
-        </div>
-      </div>
-
-      <!-- ===== TOOL: TRA LINK FILE ===== -->
-      <div class="tool-panel" id="tool-get-url">
-        <div class="card">
-          <div class="card-header">
-            <h2>🔗 Tra link file theo tên</h2>
-            <p class="card-subtitle">Nhập danh sách tên file (mỗi dòng 1 tên), tìm URL Google Sheets tương ứng trong Drive.</p>
-          </div>
-          <div class="card-body">
-            <form id="form-get-url">
-              <div class="form-group">
-                <label for="gu-folder-id">Folder ID</label>
-                <input type="text" id="gu-folder-id" class="mono" placeholder="Để trống = dùng config" />
-              </div>
-              <div class="form-group">
-                <label for="gu-items">Danh sách tên file <span class="required">*</span></label>
-                <textarea id="gu-items" class="mono textarea" rows="8" placeholder="giaphatbattery.com_ac-quy-gs&#10;giaphatbattery.com_ac-quy-delkor&#10;..." required></textarea>
-              </div>
-              <div class="form-actions">
-                <button type="submit" class="btn btn-primary" id="btn-gu-submit">🔍 Tìm URLs</button>
-              </div>
-            </form>
-          </div>
-        </div>
-        <div class="card hidden" id="gu-result-card">
-          <div class="card-header">
-            <h2 id="gu-result-title">Kết quả</h2>
-            <div class="card-actions">
-              <button class="btn btn-ghost btn-sm" id="btn-gu-copy-all">📋 Copy tất cả URLs</button>
-            </div>
-          </div>
-          <div class="card-body" id="gu-result-body"></div>
-        </div>
-      </div>
-
-      <!-- ===== TOOL: PUSH DATA ===== -->
-      <div class="tool-panel" id="tool-push-data">
-        <div class="card">
-          <div class="card-header">
-            <h2>📤 Push data vào Google Sheets</h2>
-            <p class="card-subtitle">Gọi external API lấy dữ liệu Excel, fill vào đúng tab trong Google Sheets.</p>
-          </div>
-          <div class="card-body">
-            <form id="form-push-data">
-              <div class="form-row">
-                <div class="form-group">
-                  <label for="pd-api-key">API Key</label>
-                  <input type="text" id="pd-api-key" class="mono" placeholder="Để trống = dùng config" />
-                </div>
-                <div class="form-group">
-                  <label for="pd-api-base">API Base URL</label>
-                  <input type="text" id="pd-api-base" class="mono" placeholder="Để trống = dùng config" />
-                </div>
-              </div>
-              <div class="form-group">
-                <label for="pd-jobs">Danh sách Jobs (JSON) <span class="required">*</span></label>
-                <textarea id="pd-jobs" class="mono textarea" rows="8" placeholder='[{"service":"entity","id":"uuid-here","spreadsheetId":"sheet-id"}]' required></textarea>
-                <small style="color:var(--text-muted);font-size:0.75rem">Mỗi job: { service, id, spreadsheetId }. service: entity | podcast | blog-2 | share-social | gg-stacking</small>
-              </div>
-              <div class="form-actions">
-                <button type="submit" class="btn btn-primary" id="btn-pd-submit">📤 Bắt đầu push</button>
-              </div>
-            </form>
-          </div>
-        </div>
-        <div class="card hidden" id="pd-result-card">
-          <div class="card-header">
-            <h2 id="pd-result-title">Kết quả</h2>
-          </div>
-          <div class="card-body" id="pd-result-body"></div>
-        </div>
-      </div>
-
-      <!-- ===== TOOL: UPDATE STATUS ===== -->
-      <div class="tool-panel" id="tool-update-status">
-        <div class="card">
-          <div class="card-header">
-            <h2>🏷️ Cập nhật trạng thái URL</h2>
-            <p class="card-subtitle">Cho danh sách URLs, tìm trong sheet và đánh dấu trạng thái vào cột chỉ định.</p>
-          </div>
-          <div class="card-body">
-            <form id="form-update-status">
-              <div class="form-row">
-                <div class="form-group">
-                  <label>Tên Sheet <span class="required">*</span></label>
-                  <div class="sheet-selector" id="ss-us"
-                       data-target="us-sheet-name"
-                       data-source-ref="us-source-sheet-id">
-                    <div class="sheet-selector-row">
-                      <select class="ss-select select-input" title="Chọn tab sheet">
-                        <option value="">-- Chọn hoặc tải danh sách --</option>
-                      </select>
-                      <button type="button" class="btn btn-ghost btn-sm ss-reload" title="Tải lại">🔄</button>
-                    </div>
-                    <input type="text" class="ss-custom hidden" id="us-sheet-name"
-                           placeholder="Nhập tên sheet tùy chỉnh..." required />
-                  </div>
-                </div>
-                <div class="form-group">
-                  <label for="us-source-sheet-id">Source Sheet ID</label>
-                  <input type="text" id="us-source-sheet-id" class="mono" placeholder="Để trống = dùng config" />
-                </div>
-              </div>
-              <div class="form-row">
-                <div class="form-group">
-                  <label for="us-status-text">Nội dung trạng thái</label>
-                  <input type="text" id="us-status-text" placeholder="Mặc định: Đang chạy" />
-                </div>
-                <div class="form-group">
-                  <label for="us-status-col">Cột ghi (VD: L, M, N)</label>
-                  <input type="text" id="us-status-col" placeholder="Mặc định: L" maxlength="3" style="max-width:100px" />
-                </div>
-              </div>
-              <div class="form-group">
-                <label for="us-urls">Danh sách URLs <span class="required">*</span></label>
-                <textarea id="us-urls" class="mono textarea" rows="10" placeholder="https://example.com&#10;https://example.com/page" required></textarea>
-              </div>
-              <div class="form-actions">
-                <button type="submit" class="btn btn-primary" id="btn-us-submit">🏷️ Cập nhật trạng thái</button>
-              </div>
-            </form>
-          </div>
-        </div>
-        <div class="card hidden" id="us-result-card">
-          <div class="card-header">
-            <h2 id="us-result-title">Kết quả</h2>
-          </div>
-          <div class="card-body" id="us-result-body"></div>
-        </div>
-      </div>
-
     </section>
   </main>
 
-  <!-- JOB DETAIL MODAL -->
+  <!-- MODAL -->
   <div class="modal-overlay hidden" id="modal-overlay">
-    <div class="modal" id="modal-job-detail">
+    <div class="modal">
       <div class="modal-header">
-        <h3 id="modal-title">Chi tiết Job</h3>
-        <button class="modal-close" id="btn-modal-close">✕</button>
+        <h3 id="modal-title">PROCESS_DETAILS</h3>
+        <button class="modal-close" id="btn-modal-close">ESC</button>
       </div>
-      <div class="modal-body" id="modal-body">
-      </div>
+      <div class="modal-body" id="modal-body"></div>
     </div>
   </div>
 
