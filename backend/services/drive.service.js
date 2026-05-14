@@ -30,12 +30,17 @@ async function setPublicAccess(fileId) {
 }
 
 /**
- * Liệt kê tất cả spreadsheet files trong folder
+ * Liệt kê tất cả spreadsheet files trong folder (có thể lọc theo query)
  */
-async function listFiles(folderId) {
+async function listFiles(folderId, customQuery = "") {
   const drive = await getDriveClient();
+  let q = `'${folderId}' in parents and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false`;
+  if (customQuery) {
+    q += ` and ${customQuery}`;
+  }
+  
   const res = await drive.files.list({
-    q: `'${folderId}' in parents and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false`,
+    q,
     fields: "files(id, name)",
     pageSize: 1000,
   });

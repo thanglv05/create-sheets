@@ -18,7 +18,7 @@ async function readRange(spreadsheetId, range) {
 /**
  * Lấy metadata của spreadsheet (danh sách sheets)
  */
-async function getSpreadsheetMeta(spreadsheetId) {
+async function getSpreadsheet(spreadsheetId) {
   const sheets = await getSheetsClient();
   const res = await sheets.spreadsheets.get({ spreadsheetId });
   return res.data;
@@ -37,7 +37,7 @@ async function batchUpdateSheets(spreadsheetId, requests) {
 }
 
 /**
- * Ghi nhiều range cùng lúc (ghi link về sheet gốc)
+ * Ghi nhiều range cùng lúc (batch write values)
  */
 async function batchWriteValues(spreadsheetId, data, valueInputOption = "RAW") {
   if (!data || data.length === 0) return;
@@ -48,4 +48,4 @@ async function batchWriteValues(spreadsheetId, data, valueInputOption = "RAW") {
   });
 }
 
-module.exports = { readRange, getSpreadsheetMeta, batchUpdateSheets, batchWriteValues };
+module.exports = { readRange, getSpreadsheet, batchUpdateSheets, batchWriteValues };

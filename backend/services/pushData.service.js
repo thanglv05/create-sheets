@@ -1,6 +1,6 @@
 const axios = require("axios");
 const XLSX = require("xlsx");
-const { getSpreadsheetMeta } = require("./sheets.service");
+const { getSpreadsheet } = require("./sheets.service");
 const { getAuthClient } = require("./auth.service");
 const { google } = require("googleapis");
 

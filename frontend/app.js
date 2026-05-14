@@ -59,8 +59,17 @@ function switchTab(tab) {
   document.querySelectorAll(".tab-content").forEach((el) => el.classList.remove("active"));
   document.getElementById(`nav-${tab}`)?.classList.add("active");
   document.getElementById(`tab-${tab}`)?.classList.add("active");
-  const titles = { dashboard: "Dashboard", jobs: "Danh sách Jobs", config: "Cấu hình", logs: "Nhật ký", tools: "🔧 Công cụ" };
+  const titles = { 
+    dashboard: "Dashboard", 
+    jobs: "Danh sách Jobs", 
+    config: "Cấu hình", 
+    logs: "Nhật ký", 
+    tools: "🔧 Công cụ",
+    "confirmed-manager": "📋 Quản lý Khách chốt" 
+  };
   document.getElementById("page-title").textContent = titles[tab] || tab;
+  
+  if (tab === "confirmed-manager") refreshConfirmedList();
 }
 
 document.querySelectorAll(".nav-item").forEach((el) => {
@@ -173,10 +182,87 @@ class SheetSelector {
   }
 }
 
-// Khởi tạo tất cả SheetSelector có trong trang
+// ===== DRIVE FILE SELECTOR =====
+class DriveFileSelector {
+  constructor(el) {
+    this.el = el;
+    this.targetId = el.dataset.target;
+    this.select = el.querySelector(".dfs-select");
+    this.reloadBtn = el.querySelector(".dfs-reload");
+    this.custom = el.querySelector(".dfs-custom");
+    this._files = [];
+
+    this._bind();
+    this.load();
+  }
+
+  _bind() {
+    this.reloadBtn.addEventListener("click", () => this.load());
+    this.select.addEventListener("change", () => this._onSelectChange());
+  }
+
+  async load() {
+    this.reloadBtn.disabled = true;
+    this.reloadBtn.classList.add("spinning");
+    this.select.innerHTML = `<option value="">⏳ Đang tải files...</option>`;
+    this.select.disabled = true;
+
+    try {
+      const res = await API.get("/tools/drive-files");
+      this._files = res.files || [];
+      this._populateSelect();
+    } catch (err) {
+      this.select.innerHTML = `<option value="">⚠️ Lỗi tải: ${escHtml(err.message)}</option>`;
+      this.select.disabled = false;
+    } finally {
+      this.reloadBtn.disabled = false;
+      this.reloadBtn.classList.remove("spinning");
+    }
+  }
+
+  _populateSelect() {
+    const files = this._files;
+    this.select.innerHTML =
+      `<option value="">-- Chọn file (${files.length}) --</option>` +
+      files.map((f) => `<option value="${escHtml(f.id)}">${escHtml(f.name)}</option>`).join("") +
+      `<option value="__custom__">➕ Nhập ID thủ công...</option>`;
+    this.select.disabled = false;
+  }
+
+  _onSelectChange() {
+    const val = this.select.value;
+    const target = document.getElementById(this.targetId);
+
+    if (val === "__custom__") {
+      this.select.classList.add("hidden");
+      this.custom.classList.remove("hidden");
+      this.custom.required = true;
+      if (target) { target.value = ""; target.required = false; }
+      this.custom.focus();
+    } else {
+      this.custom.classList.add("hidden");
+      this.custom.required = false;
+      if (target) { target.value = val; target.required = !!val; }
+    }
+  }
+
+  getValue() {
+    if (this.select.value === "__custom__") {
+      return this.custom.value.trim();
+    }
+    return this.select.value;
+  }
+}
+
+// Khởi tạo tất cả Selectors
 const sheetSelectors = {};
 document.querySelectorAll(".sheet-selector").forEach((el) => {
   sheetSelectors[el.id] = new SheetSelector(el);
+});
+
+const driveFileSelectors = {};
+document.querySelectorAll(".drive-file-selector").forEach((el) => {
+  driveFileSelectors[el.id] = new DriveFileSelector(el);
 });
 
 // Helper: lấy giá trị sheet name từ selector (hoặc plain input fallback)
@@ -656,6 +742,10 @@ document.querySelectorAll(".tool-tab").forEach((btn) => {
   });
 });
 
+// Initialize all selectors
+document.querySelectorAll(".sheet-selector").forEach(el => new SheetSelector(el));
+document.querySelectorAll(".drive-file-selector").forEach(el => new DriveFileSelector(el));
+
 // ----- Helper: render logs array -----
 function renderToolLogs(logs = []) {
   if (!logs.length) return "";
@@ -784,21 +874,73 @@ document.getElementById("btn-gu-copy-all")?.addEventListener("click", async () =
   }
 });
 
-// ===== TOOL 3: PUSH DATA =====
-document.getElementById("form-push-data").addEventListener("submit", async (e) => {
+// ===== TOOL 3: PUSH DATA LOGIC =====
+function createPushRow(data = { service: "entity", id: "", spreadsheetId: "" }) {
+  const container = document.getElementById("pd-rows-container");
+  if (!container) return;
+
+  const row = document.createElement("div");
+  row.className = "form-row push-data-row";
+  row.style.borderBottom = "1px solid var(--border-subtle)";
+  row.style.paddingBottom = "12px";
+  row.style.marginBottom = "12px";
+  row.style.display = "flex";
+  row.style.gap = "12px";
+  row.style.alignItems = "flex-end";
+  
+  row.innerHTML = `
+    <div class="form-group" style="flex: 1">
+      <label>Service</label>
+      <select class="select-input pd-row-service">
+        <option value="entity" ${data.service === "entity" ? "selected" : ""}>Entity</option>
+        <option value="podcast" ${data.service === "podcast" ? "selected" : ""}>Podcast</option>
+        <option value="blog-2" ${data.service === "blog-2" ? "selected" : ""}>Blog-2</option>
+        <option value="share-social" ${data.service === "share-social" ? "selected" : ""}>Share Social</option>
+        <option value="gg-stacking" ${data.service === "gg-stacking" ? "selected" : ""}>GG Stacking</option>
+      </select>
+    </div>
+    <div class="form-group" style="flex: 2">
+      <label>ID</label>
+      <input type="text" class="mono pd-row-id" value="${data.id}" placeholder="UUID / ID" />
+    </div>
+    <div class="form-group" style="flex: 3">
+      <label>Spreadsheet ID</label>
+      <input type="text" class="mono pd-row-sheet" value="${data.spreadsheetId}" placeholder="ID Google Sheet" />
+    </div>
+    <button type="button" class="btn btn-danger btn-sm btn-remove-row" style="margin-bottom: 4px;">✕</button>
+  `;
+
+  row.querySelector(".btn-remove-row").addEventListener("click", () => {
+    row.remove();
+    if (container.children.length === 0) createPushRow();
+  });
+
+  container.appendChild(row);
+}
+
+// Khởi tạo hàng đầu tiên và gán sự kiện
+if (document.getElementById("pd-rows-container")) {
+  createPushRow();
+  document.getElementById("btn-pd-add-row")?.addEventListener("click", () => createPushRow());
+}
+
+document.getElementById("form-push-data")?.addEventListener("submit", async (e) => {
   e.preventDefault();
-  const jobsRaw = document.getElementById("pd-jobs").value.trim();
-  if (!jobsRaw) return toast("Vui lòng nhập danh sách jobs", "error");
+  
+  const rows = document.querySelectorAll(".push-data-row");
+  const jobs = [];
+  rows.forEach(row => {
+    const service = row.querySelector(".pd-row-service").value;
+    const id = row.querySelector(".pd-row-id").value.trim();
+    const spreadsheetId = row.querySelector(".pd-row-sheet").value.trim();
+    if (id && spreadsheetId) {
+      jobs.push({ service, id, spreadsheetId });
+    }
+  });
 
-  let jobs;
-  try {
-    jobs = JSON.parse(jobsRaw);
-    if (!Array.isArray(jobs)) throw new Error("Phải là mảng JSON");
-  } catch (err) {
-    return toast(`Jobs JSON không hợp lệ: ${err.message}`, "error");
-  }
+  if (jobs.length === 0) return toast("Vui lòng nhập ít nhất một nhiệm vụ hợp lệ", "error");
 
-  setBtnLoading("btn-pd-submit", true, "📤 Bắt đầu push");
+  setBtnLoading("btn-pd-submit", true, "⌛ Đang xử lý...");
   try {
     const res = await API.post("/tools/push-data", {
       apiKey: document.getElementById("pd-api-key").value.trim() || undefined,
@@ -883,3 +1025,165 @@ document.getElementById("form-update-status").addEventListener("submit", async (
     setBtnLoading("btn-us-submit", false, "🏷️ Cập nhật trạng thái");
   }
 });
+
+// ===== CONFIRMED MANAGER LOGIC =====
+App.currentConfirmed = [];
+
+async function refreshConfirmedList() {
+  const container = document.getElementById("confirmed-list-container");
+  if (!container) return;
+  
+  container.innerHTML = '<div class="empty-state">⏳ Đang quét sheet tìm khách chốt...</div>';
+  
+  try {
+    const data = await API.get("/tools/confirmed-list");
+    App.currentConfirmed = data.results || [];
+    
+    if (App.currentConfirmed.length === 0) {
+      container.innerHTML = '<div class="empty-state">✅ Không có khách nào đang ở trạng thái "khách chốt".</div>';
+      return;
+    }
+
+    container.innerHTML = `
+      <table class="result-table">
+        <thead>
+          <tr>
+            <th style="width:50px">#</th>
+            <th>URL Khách</th>
+            <th>Tên Sheet (K)</th>
+            <th>Trạng thái</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${App.currentConfirmed.map((item, i) => `
+            <tr>
+              <td>${i + 1}</td>
+              <td class="td-url"><a href="${item.url}" target="_blank">${escHtml(item.url)}</a></td>
+              <td><code>${escHtml(item.sheetName)}</code></td>
+              <td><span class="tag-found">Khách chốt</span></td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+  } catch (err) {
+    container.innerHTML = `<div class="empty-state" style="color:var(--error)">❌ Lỗi: ${err.message}</div>`;
+  }
+}
+
+document.getElementById("btn-refresh-confirmed")?.addEventListener("click", refreshConfirmedList);
+
+document.getElementById("btn-bulk-to-running")?.addEventListener("click", async () => {
+  if (!App.currentConfirmed || App.currentConfirmed.length === 0) {
+    return toast("Không có dữ liệu để cập nhật", "warning");
+  }
+  
+  if (!confirm(`Xác nhận chuyển ${App.currentConfirmed.length} URL sang "Đang chạy"?`)) return;
+  
+  const btn = document.getElementById("btn-bulk-to-running");
+  const oldText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = "⌛ Đang xử lý...";
+  
+  const urls = App.currentConfirmed.map(item => item.url);
+  try {
+    const res = await API.post("/tools/confirm-to-running", { urls });
+    toast(`✅ Đã cập nhật ${res.updated} dòng sang "Đang chạy"`, "success");
+    await refreshConfirmedList();
+  } catch (err) {
+    toast(`Lỗi: ${err.message}`, "error");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = oldText;
+  }
+});
+
+// ===== TOOL: SCRAPE INFO LOGIC =====
+document.getElementById("form-scrape-info")?.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const urlsRaw = document.getElementById("si-urls").value.trim();
+  const urls = urlsRaw.split("\n").map(u => u.trim()).filter(u => u);
+  
+  const selector = driveFileSelectors["dfs-scrape"];
+  const spreadsheetId = selector ? selector.getValue() : document.getElementById("si-spreadsheet-id")?.value.trim();
+
+  if (!urls.length) return toast("Vui lòng nhập ít nhất 1 URL", "warning");
+
+  const statusArea = document.getElementById("si-status-area");
+  const steps = [
+    document.getElementById("si-step-1"),
+    document.getElementById("si-step-2"),
+    document.getElementById("si-step-3")
+  ];
+
+  // Reset UI
+  statusArea.classList.remove("hidden");
+  steps.forEach(s => { 
+    s.textContent = s.textContent.replace(/[🔵✅❌]/g, "⚪"); 
+    s.classList.remove("active"); 
+  });
+  document.getElementById("si-result-card").classList.add("hidden");
+
+  setBtnLoading("btn-si-submit", true, `🚀 Đang xử lý ${urls.length} URLs...`);
+  
+  try {
+    steps[0].textContent = `🔵 1. Đang xử lý ${urls.length} URLs (Cào + Tìm file + Điền)...`;
+    steps[0].classList.add("active");
+
+    const res = await API.post("/tools/scrape-info", { urls, spreadsheetId });
+    
+    steps[0].textContent = "✅ 1. Đã hoàn thành xử lý danh sách";
+    steps[1].textContent = `✅ 2. Thành công: ${res.results.filter(r => r.status === "success").length}`;
+    steps[2].textContent = `✅ 3. Lỗi: ${res.results.filter(r => r.status === "error").length}`;
+    steps.forEach(s => s.classList.remove("active"));
+
+    // Render table kết quả
+    renderScrapeResults(res.results);
+    document.getElementById("si-result-card").classList.remove("hidden");
+    
+    toast(`✅ Hoàn thành! Thành công ${res.results.filter(r => r.status === "success").length}/${urls.length}`, "success");
+  } catch (err) {
+    toast(`Thất bại: ${err.message}`, "error");
+    steps[0].textContent = `❌ Lỗi: ${err.message}`;
+  } finally {
+    setBtnLoading("btn-si-submit", false, "🚀 Bắt đầu tự động điền");
+  }
+});
+
+function renderScrapeResults(results) {
+  const container = document.getElementById("si-result-json");
+  if (!container) return;
+
+  if (!results.length) {
+    container.innerHTML = "Không có kết quả";
+    return;
+  }
+
+  container.innerHTML = `
+    <table class="result-table" style="font-size:0.8rem">
+      <thead>
+        <tr>
+          <th>URL</th>
+          <th>Trạng thái</th>
+          <th>Thông tin thu thập</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${results.map(r => {
+          const p = r.data?.businessProfile || {};
+          const info = r.status === "success" 
+            ? `<b>${p.firstName} ${p.lastName}</b><br>📞 ${p.phone}<br>📍 ${p.city}`
+            : `<span style="color:var(--error)">${r.error || "Lỗi không xác định"}</span>`;
+          
+          return `
+            <tr>
+              <td class="td-url"><a href="${r.url}" target="_blank">${r.url}</a></td>
+              <td><span class="tag-${r.status}">${r.status === "success" ? "✅ Xong" : "❌ Lỗi"}</span></td>
+              <td>${info}</td>
+            </tr>
+          `;
+        }).join('')}
+      </tbody>
+    </table>
+  `;
+}

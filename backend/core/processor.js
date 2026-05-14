@@ -1,4 +1,4 @@
-const { readRange, getSpreadsheetMeta, batchUpdateSheets, batchWriteValues } = require("../services/sheets.service");
+const { readRange, getSpreadsheet, batchUpdateSheets, batchWriteValues } = require("../services/sheets.service");
 const { copyTemplate, setPublicAccess } = require("../services/drive.service");
 
 /**
@@ -61,7 +61,7 @@ async function processGroup(item, jobConfig, log) {
   log("success", `🔗 ${fileUrl}`);
 
   // 3. Đổi tên sheets
-  const meta = await getSpreadsheetMeta(newFileId);
+  const meta = await getSpreadsheet(newFileId);
   const sheetMap = {};
   meta.sheets.forEach((s) => {
     sheetMap[s.properties.title.trim().toUpperCase()] = s.properties.sheetId;
@@ -118,8 +118,15 @@ async function processGroup(item, jobConfig, log) {
 async function runJob(job, log, onProgress) {
   const { sourceSheetId, sheetName } = job.config;
 
-  // 1. Đọc sheet
+  // 1. Đọc sheet & Lấy sheetId
   log("info", `📊 Đọc sheet: ${sheetName}`);
+  const meta = await getSpreadsheet(sourceSheetId);
+  const targetSheet = meta.sheets.find((s) => s.properties.title === sheetName);
+  if (!targetSheet) {
+    throw new Error(`Không tìm thấy tab "${sheetName}" trong sheet nguồn.`);
+  }
+  const sheetId = targetSheet.properties.sheetId;
+
   const rows = await readRange(sourceSheetId, `${sheetName}!H2:K`);
   log("info", `📊 Tổng dòng: ${rows.length}`);
 
