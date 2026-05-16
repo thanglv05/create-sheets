@@ -506,8 +506,11 @@
         <div class="card-header">
           <h2>📋 Quản lý khách đã chốt</h2>
           <div class="card-actions">
-            <button class="btn btn-ghost btn-sm" id="btn-refresh-confirmed">🔄 Làm mới</button>
-            <button class="btn btn-primary btn-sm" id="btn-bulk-to-running">⚡ Chuyển sang "Đang chạy"</button>
+            <div class="flex-row" style="gap: 8px;">
+              <button class="btn btn-secondary btn-sm" id="btn-refresh-confirmed">🔄 Tải lại</button>
+              <button class="btn btn-ghost btn-sm" id="btn-copy-all-confirmed" title="Copy toàn bộ link URL">📋 Copy tất cả URL</button>
+              <button class="btn btn-primary btn-sm" id="btn-bulk-to-running">⚡ Chuyển "Đang chạy"</button>
+            </div>
           </div>
         </div>
         <div class="card-body">

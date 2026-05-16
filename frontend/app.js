@@ -1050,8 +1050,8 @@ async function refreshConfirmedList() {
           <tr>
             <th style="width:50px">#</th>
             <th>URL Khách</th>
+            <th>Link Sheet</th>
             <th>Tên Sheet (K)</th>
-            <th>Trạng thái</th>
           </tr>
         </thead>
         <tbody>
@@ -1059,8 +1059,8 @@ async function refreshConfirmedList() {
             <tr>
               <td>${i + 1}</td>
               <td class="td-url"><a href="${item.url}" target="_blank">${escHtml(item.url)}</a></td>
+              <td><a href="${item.sheetUrl || '#'}" target="_blank" class="tag-found">${item.sheetUrl ? 'Mở Sheet 🔗' : 'Chưa có file'}</a></td>
               <td><code>${escHtml(item.sheetName)}</code></td>
-              <td><span class="tag-found">Khách chốt</span></td>
             </tr>
           `).join('')}
         </tbody>
@@ -1072,6 +1072,41 @@ async function refreshConfirmedList() {
 }
 
 document.getElementById("btn-refresh-confirmed")?.addEventListener("click", refreshConfirmedList);
+
+// Helper copy to clipboard
+async function copyToClipboard(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch (err) {
+    // Fallback cho trình duyệt cũ
+    const textArea = document.createElement("textarea");
+    textArea.value = text;
+    document.body.appendChild(textArea);
+    textArea.select();
+    try {
+      document.execCommand('copy');
+    } catch (err) {
+      toast("Không thể copy. Hãy thử copy thủ công.", "error");
+    }
+    document.body.removeChild(textArea);
+  }
+}
+
+document.getElementById("btn-copy-all-confirmed")?.addEventListener("click", () => {
+  if (!App.currentConfirmed || App.currentConfirmed.length === 0) {
+    return toast("Không có URL nào để copy", "warning");
+  }
+  // Lấy sheetUrl có sẵn từ Backend
+  const allSheetUrls = App.currentConfirmed
+    .map(item => item.sheetUrl)
+    .filter(url => url)
+    .join("\n");
+
+  if (!allSheetUrls) return toast("Không tìm thấy link Sheet nào để copy", "warning");
+
+  copyToClipboard(allSheetUrls);
+  toast(`📋 Đã copy ${allSheetUrls.split("\n").length} link Google Sheet vào bộ nhớ đệm!`, "success");
+});
 
 document.getElementById("btn-bulk-to-running")?.addEventListener("click", async () => {
   if (!App.currentConfirmed || App.currentConfirmed.length === 0) {

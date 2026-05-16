@@ -138,10 +138,19 @@ router.post("/scrape-info", async (req, res) => {
 
   const results = [];
 
-  for (const url of urls) {
+  for (let url of urls) {
     const result = { url, status: "pending" };
     try {
       if (!url) continue;
+
+      // Tự động sửa lỗi nếu người dùng nhập tên file thay vì URL
+      // Ví dụ: trannhattruong.com_ong-mat_ -> https://trannhattruong.com/ong-mat/
+      if (!url.startsWith("http") && url.includes("_")) {
+        console.log(`[BulkScrape] Phát hiện input dạng tên file, đang chuyển đổi ngược lại...`);
+        url = "https://" + url.replace(/_/g, "/").replace(/\/+$/, "/");
+      } else if (!url.startsWith("http")) {
+        url = "https://" + url;
+      }
 
       // 1. Cào
       const data = await scrapeUrl(url);
