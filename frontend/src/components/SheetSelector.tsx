@@ -9,9 +9,10 @@ interface SheetSelectorProps {
   value: string;
   onChange: (val: string) => void;
   sourceSheetId?: string;
+  mb?: number | string;
 }
 
-export default function SheetSelector({ label = 'Tên Sheet', required, value, onChange, sourceSheetId }: SheetSelectorProps) {
+export default function SheetSelector({ label = 'Tên Sheet', required, value, onChange, sourceSheetId, mb = 0 }: SheetSelectorProps) {
   const { sheetNames, fetchSelectors } = useAppStore();
   const [isCustom, setIsCustom] = useState(false);
   const [internalVal, setInternalVal] = useState(value);
@@ -39,7 +40,7 @@ export default function SheetSelector({ label = 'Tên Sheet', required, value, o
   ];
 
   return (
-    <div style={{ marginBottom: 16 }}>
+    <div style={{ marginBottom: mb }}>
       {isCustom ? (
         <TextInput 
           label={label} 

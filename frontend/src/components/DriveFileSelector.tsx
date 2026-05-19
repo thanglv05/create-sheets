@@ -9,9 +9,10 @@ interface DriveFileSelectorProps {
   value: string;
   onChange: (val: string) => void;
   description?: string;
+  mb?: number | string;
 }
 
-export default function DriveFileSelector({ label = 'Chọn File Spreadsheet', required, value, onChange, description }: DriveFileSelectorProps) {
+export default function DriveFileSelector({ label = 'Chọn File Spreadsheet', required, value, onChange, description, mb = 0 }: DriveFileSelectorProps) {
   const { driveFiles, fetchSelectors } = useAppStore();
   const [isCustom, setIsCustom] = useState(false);
 
@@ -37,7 +38,7 @@ export default function DriveFileSelector({ label = 'Chọn File Spreadsheet', r
   ];
 
   return (
-    <div style={{ marginBottom: 16 }}>
+    <div style={{ marginBottom: mb }}>
       {isCustom ? (
         <TextInput 
           label={label} 
