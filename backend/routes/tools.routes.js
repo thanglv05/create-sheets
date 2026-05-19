@@ -20,6 +20,26 @@ router.get("/sheet-names", async (req, res) => {
   }
 });
 
+// ===== POST /api/tools/sheet-urls =====
+router.post("/sheet-urls", async (req, res) => {
+  try {
+    const cfg = loadConfig();
+    const { items, folderId } = req.body;
+    if (!items || !items.length) return res.status(400).json({ error: "Danh sách tên file là bắt buộc" });
+
+    const { runGetUrl } = require("../services/getUrl.service");
+    const results = await runGetUrl({
+      folderId: folderId || cfg.folderId,
+      items: Array.isArray(items) ? items : [items],
+      log: (lvl, msg) => console.log(`[GetURL] ${msg}`)
+    });
+
+    res.json({ success: true, results });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ===== POST /api/tools/customer-confirmed =====
 router.post("/customer-confirmed", async (req, res) => {
   try {
