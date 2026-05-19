@@ -2,6 +2,7 @@ import { Card, Title, TextInput, Textarea, Button, SimpleGrid, Group } from '@ma
 import { useAppStore } from '@/store/useAppStore';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
+import { notifications } from '@mantine/notifications';
 
 export default function ConfigTab() {
   const { config, fetchConfig } = useAppStore();
@@ -24,14 +25,27 @@ export default function ConfigTab() {
       try {
         nameMapObj = JSON.parse(formData.nameMap);
       } catch(e) {
-        return alert("Name Map không hợp lệ");
+        notifications.show({
+          title: 'Lỗi',
+          message: 'Name Map JSON không hợp lệ!',
+          color: 'red',
+        });
+        return;
       }
       
       await axios.post('/api/config', { ...formData, nameMap: nameMapObj });
-      alert("Đã lưu!");
+      notifications.show({
+        title: 'Thành công',
+        message: 'Đã lưu cấu hình mặc định!',
+        color: 'teal',
+      });
       fetchConfig();
     } catch(e) {
-      alert("Lỗi khi lưu config");
+      notifications.show({
+        title: 'Lỗi',
+        message: 'Lỗi khi lưu cấu hình!',
+        color: 'red',
+      });
     }
   };
 

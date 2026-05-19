@@ -3,6 +3,7 @@ import { IconLayersIntersect, IconClock, IconBolt, IconCheck, IconX, IconPlus, I
 import { useAppStore } from '@/store/useAppStore';
 import { useDisclosure } from '@mantine/hooks';
 import axios from 'axios';
+import { notifications } from '@mantine/notifications';
 import { useState } from 'react';
 import SheetSelector from './SheetSelector';
 
@@ -29,7 +30,11 @@ export default function DashboardTab() {
       setFormData({ name: '', sheetName: '', sourceSheetId: '', templateId: '', folderId: '' });
     } catch (err) {
       console.error(err);
-      alert("Lỗi khi thêm Job!");
+      notifications.show({
+        title: 'Lỗi',
+        message: 'Lỗi khi thêm Job!',
+        color: 'red',
+      });
     } finally {
       setLoading(false);
     }

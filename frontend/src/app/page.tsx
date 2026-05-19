@@ -1,7 +1,7 @@
 'use client';
-import { AppShell, Burger, Group, NavLink, Badge, Text, Button, Indicator } from '@mantine/core';
+import { AppShell, Burger, Group, NavLink, Badge, Text, Button, Indicator, ActionIcon, useMantineColorScheme } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
-import { IconLayoutDashboard, IconListCheck, IconTool, IconUserCheck, IconTerminal, IconSettings, IconBolt, IconPlayerPlay } from '@tabler/icons-react';
+import { IconLayoutDashboard, IconListCheck, IconTool, IconUserCheck, IconTerminal, IconSettings, IconSun, IconMoon, IconPlayerPlay } from '@tabler/icons-react';
 import { useState, useEffect, Suspense } from 'react';
 import { useAppStore } from '@/store/useAppStore';
 import { useSearchParams, useRouter } from 'next/navigation';
@@ -10,7 +10,6 @@ import DashboardTab from '@/components/DashboardTab';
 import JobsTab from '@/components/JobsTab';
 import ToolsTab from '@/components/ToolsTab';
 import ConfirmedTab from '@/components/ConfirmedTab';
-import LogsTab from '@/components/LogsTab';
 import ConfigTab from '@/components/ConfigTab';
 import Splash from '@/components/Splash';
 import CatMascot from '@/components/CatMascot';
@@ -21,6 +20,8 @@ function AppContent() {
   const [opened, { toggle }] = useDisclosure();
   const searchParams = useSearchParams();
   const router = useRouter();
+  const { colorScheme, toggleColorScheme } = useMantineColorScheme();
+  const dark = colorScheme === 'dark';
   
   const activeTab = searchParams.get('tab') || 'dashboard';
   const setActiveTab = (tab: string) => {
@@ -86,17 +87,21 @@ function AppContent() {
           collapsed: { mobile: !opened },
         }}
         padding="md"
-        transitionDuration={500}
+        transitionDuration={300}
         transitionTimingFunction="ease"
       >
-        <AppShell.Header style={{ backgroundColor: 'rgba(26, 27, 30, 0.8)', backdropFilter: 'blur(10px)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+        <AppShell.Header style={{ 
+          backgroundColor: dark ? 'rgba(26, 27, 30, 0.8)' : 'rgba(255, 255, 255, 0.8)', 
+          backdropFilter: 'blur(10px)', 
+          borderBottom: dark ? '1px solid rgba(255,255,255,0.05)' : '1px solid rgba(0,0,0,0.08)' 
+        }}>
           <Group h="100%" px="md" justify="space-between">
             <Group>
               <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" />
               <Group gap="xs">
-                <IconBolt size={24} color="#3bc9db" />
-                <Text size="xl" fw={800} variant="gradient" gradient={{ from: 'indigo', to: 'cyan', deg: 90 }} style={{ letterSpacing: '-0.5px' }}>
-                  SheetsBot
+                <img src="/logo.svg" alt="Likepion Logo" style={{ width: 28, height: 28 }} />
+                <Text size="xl" fw={800} variant="gradient" gradient={dark ? { from: 'indigo', to: 'cyan', deg: 90 } : { from: 'blue', to: 'indigo', deg: 90 }} style={{ letterSpacing: '-0.5px' }}>
+                  Likepion
                 </Text>
               </Group>
             </Group>
@@ -106,6 +111,11 @@ function AppContent() {
                 <Indicator color={authStatus.authed ? 'teal' : 'red'} size={10} processing={authStatus.authed} withBorder />
                 <Text size="sm" c="dimmed" fw={500}>{authStatus.message}</Text>
               </Group>
+              
+              <ActionIcon onClick={() => toggleColorScheme()} variant="default" size="lg" aria-label="Toggle color scheme">
+                {dark ? <IconSun size={18} /> : <IconMoon size={18} />}
+              </ActionIcon>
+
               <Button leftSection={<IconPlayerPlay size={16} />} onClick={handleStartQueue} variant="gradient" gradient={{ from: 'indigo', to: 'cyan' }} radius="md" fw={600}>
                 Chạy Queue
               </Button>
@@ -113,23 +123,24 @@ function AppContent() {
           </Group>
         </AppShell.Header>
 
-        <AppShell.Navbar p="sm" style={{ borderRight: '1px solid rgba(255,255,255,0.05)', backgroundColor: '#141517' }}>
-          <NavLink label="Dashboard" leftSection={<IconLayoutDashboard size="1.1rem" stroke={1.5} />} active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} style={{ borderRadius: '8px', marginBottom: 4 }} variant="filled" color="dark" />
-          <NavLink label="Danh sách Jobs" leftSection={<IconListCheck size="1.1rem" stroke={1.5} />} rightSection={pendingJobs > 0 && <Badge size="xs" color="indigo" variant="filled">{pendingJobs}</Badge>} active={activeTab === 'jobs'} onClick={() => setActiveTab('jobs')} style={{ borderRadius: '8px', marginBottom: 4 }} variant="filled" color="dark" />
-          <NavLink label="Công cụ" leftSection={<IconTool size="1.1rem" stroke={1.5} />} active={activeTab === 'tools'} onClick={() => setActiveTab('tools')} style={{ borderRadius: '8px', marginBottom: 4 }} variant="filled" color="dark" />
-          <NavLink label="Khách chốt" leftSection={<IconUserCheck size="1.1rem" stroke={1.5} />} active={activeTab === 'confirmed'} onClick={() => setActiveTab('confirmed')} style={{ borderRadius: '8px', marginBottom: 4 }} variant="filled" color="dark" />
+        <AppShell.Navbar p="sm" style={{ 
+          borderRight: dark ? '1px solid rgba(255,255,255,0.05)' : '1px solid rgba(0,0,0,0.08)', 
+          backgroundColor: dark ? '#141517' : '#ffffff' 
+        }}>
+          <NavLink label="Dashboard" leftSection={<IconLayoutDashboard size="1.1rem" stroke={1.5} />} active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} style={{ borderRadius: '8px', marginBottom: 4 }} variant={activeTab === 'dashboard' ? 'light' : 'subtle'} color="indigo" />
+          <NavLink label="Danh sách Jobs" leftSection={<IconListCheck size="1.1rem" stroke={1.5} />} rightSection={pendingJobs > 0 && <Badge size="xs" color="indigo" variant="filled">{pendingJobs}</Badge>} active={activeTab === 'jobs'} onClick={() => setActiveTab('jobs')} style={{ borderRadius: '8px', marginBottom: 4 }} variant={activeTab === 'jobs' ? 'light' : 'subtle'} color="indigo" />
+          <NavLink label="Công cụ" leftSection={<IconTool size="1.1rem" stroke={1.5} />} active={activeTab === 'tools'} onClick={() => setActiveTab('tools')} style={{ borderRadius: '8px', marginBottom: 4 }} variant={activeTab === 'tools' ? 'light' : 'subtle'} color="indigo" />
+          <NavLink label="Khách chốt" leftSection={<IconUserCheck size="1.1rem" stroke={1.5} />} active={activeTab === 'confirmed'} onClick={() => setActiveTab('confirmed')} style={{ borderRadius: '8px', marginBottom: 4 }} variant={activeTab === 'confirmed' ? 'light' : 'subtle'} color="indigo" />
           
           <Text c="dimmed" size="xs" fw={700} mt="xl" mb="sm" ml="xs" tt="uppercase" lts={1}>Hệ thống</Text>
-          <NavLink label="Nhật ký" leftSection={<IconTerminal size="1.1rem" stroke={1.5} />} active={activeTab === 'logs'} onClick={() => setActiveTab('logs')} style={{ borderRadius: '8px', marginBottom: 4 }} variant="filled" color="dark" />
-          <NavLink label="Cấu hình" leftSection={<IconSettings size="1.1rem" stroke={1.5} />} active={activeTab === 'config'} onClick={() => setActiveTab('config')} style={{ borderRadius: '8px', marginBottom: 4 }} variant="filled" color="dark" />
+          <NavLink label="Cấu hình" leftSection={<IconSettings size="1.1rem" stroke={1.5} />} active={activeTab === 'config'} onClick={() => setActiveTab('config')} style={{ borderRadius: '8px', marginBottom: 4 }} variant={activeTab === 'config' ? 'light' : 'subtle'} color="indigo" />
         </AppShell.Navbar>
 
-        <AppShell.Main bg="#0a0a0a">
+        <AppShell.Main>
           {activeTab === 'dashboard' && <DashboardTab key="dashboard" />}
           {activeTab === 'jobs' && <JobsTab key="jobs" />}
           {activeTab === 'tools' && <ToolsTab key="tools" />}
           {activeTab === 'confirmed' && <ConfirmedTab key="confirmed" />}
-          {activeTab === 'logs' && <LogsTab key="logs" />}
           {activeTab === 'config' && <ConfigTab key="config" />}
         </AppShell.Main>
         

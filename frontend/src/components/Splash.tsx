@@ -1,7 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { IconBolt } from '@tabler/icons-react';
 
 export default function Splash() {
   const [show, setShow] = useState(true);
@@ -22,7 +21,7 @@ export default function Splash() {
             position: 'fixed',
             inset: 0,
             zIndex: 9999,
-            backgroundColor: '#0a0a0a',
+            backgroundColor: 'var(--body-bg, #0a0a0a)',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
@@ -34,7 +33,7 @@ export default function Splash() {
             animate={{ scale: 1, opacity: 1 }}
             transition={{ duration: 0.5, ease: 'easeOut' }}
           >
-            <IconBolt size={64} color="#3bc9db" stroke={1.5} />
+            <img src="/logo.svg" alt="Likepion Logo" style={{ width: 80, height: 80 }} />
           </motion.div>
           
           <motion.h1
@@ -45,19 +44,19 @@ export default function Splash() {
               marginTop: 16, 
               fontSize: '2rem', 
               fontWeight: 700, 
-              background: 'linear-gradient(90deg, #748ffc, #3bc9db)',
+              background: 'linear-gradient(90deg, #4c6ef5, #22b8cf)',
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent'
             }}
           >
-            SheetsBot
+            Likepion
           </motion.h1>
 
           <motion.p
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.5, delay: 0.4 }}
-            style={{ color: '#868e96', marginTop: 8 }}
+            style={{ color: 'var(--mantine-color-dimmed, #868e96)', marginTop: 8 }}
           >
             Đang khởi động hệ thống...
           </motion.p>

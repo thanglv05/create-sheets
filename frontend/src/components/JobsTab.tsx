@@ -2,6 +2,7 @@ import { Card, Title, Text, Table, Badge, Button, Group, Progress, ActionIcon } 
 import { IconTrash, IconPlayerPlay } from '@tabler/icons-react';
 import { useAppStore } from '@/store/useAppStore';
 import axios from 'axios';
+import { notifications } from '@mantine/notifications';
 
 export default function JobsTab() {
   const { jobs, fetchJobs } = useAppStore();
@@ -21,8 +22,17 @@ export default function JobsTab() {
     try {
       await axios.delete('/api/run/jobs/' + id);
       fetchJobs();
+      notifications.show({
+        title: 'Thành công',
+        message: 'Đã xóa job thành công!',
+        color: 'teal',
+      });
     } catch (e) {
-      alert("Lỗi xóa job");
+      notifications.show({
+        title: 'Lỗi',
+        message: 'Lỗi xóa job',
+        color: 'red',
+      });
     }
   }
 

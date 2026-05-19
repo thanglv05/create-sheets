@@ -1,3 +1,4 @@
+'use client';
 import { Card, Title, Text, Tabs, TextInput, Textarea, Button, Table, Group, SimpleGrid, ActionIcon } from '@mantine/core';
 import { IconUsers, IconLink, IconUpload, IconTag, IconRobot, IconSearch, IconPlus, IconTrash } from '@tabler/icons-react';
 import { useState } from 'react';
@@ -6,7 +7,16 @@ import { notifications } from '@mantine/notifications';
 import SheetSelector from './SheetSelector';
 import DriveFileSelector from './DriveFileSelector';
 
+const tabLabels: Record<string, string> = {
+  'customer-confirmed': 'Khách chốt',
+  'get-url': 'Tra link file',
+  'push-data': 'Push data',
+  'update-status': 'Cập nhật trạng thái',
+  'scrape-info': 'Tự động điền Info'
+};
+
 export default function ToolsTab() {
+  const [activeSubTab, setActiveSubTab] = useState<string>('customer-confirmed');
   const [loading, setLoading] = useState(false);
   const [ccSheetName, setCcSheetName] = useState('');
   const [ccResults, setCcResults] = useState<any[]>([]);
@@ -96,31 +106,56 @@ export default function ToolsTab() {
 
   return (
     <>
-      <Card withBorder radius="md" p={0} style={{ minHeight: '600px' }}>
-        <Tabs defaultValue="customer-confirmed" orientation="vertical" p="md" keepMounted={false}>
-          <Tabs.List mr="md" style={{ minWidth: 200 }}>
-            <Tabs.Tab value="customer-confirmed" leftSection={<IconUsers size={16} />}>Khách chốt</Tabs.Tab>
-            <Tabs.Tab value="get-url" leftSection={<IconLink size={16} />}>Tra link file</Tabs.Tab>
-            <Tabs.Tab value="push-data" leftSection={<IconUpload size={16} />}>Push data</Tabs.Tab>
-            <Tabs.Tab value="update-status" leftSection={<IconTag size={16} />}>Update trạng thái</Tabs.Tab>
-            <Tabs.Tab value="scrape-info" leftSection={<IconRobot size={16} />}>Tự động điền Info</Tabs.Tab>
-          </Tabs.List>
+      <Group gap="xs" mb="lg">
+        <Text size="sm" c="dimmed" fw={500}>Công cụ</Text>
+        <Text size="sm" c="dimmed">/</Text>
+        <Text size="sm" fw={600} c="indigo">{tabLabels[activeSubTab]}</Text>
+      </Group>
 
-          <Tabs.Panel value="customer-confirmed" pl="xl">
-            <Title order={3} mb="sm">Tìm URL khách chốt</Title>
+      <Tabs value={activeSubTab} onChange={(val) => setActiveSubTab(val || 'customer-confirmed')} keepMounted={false}>
+        <Card withBorder radius="md" p={0} mb="lg" style={{ overflow: 'visible' }}>
+          <Tabs.List style={{ 
+            borderBottom: 'none', 
+            padding: '12px 16px',
+            gap: '8px'
+          }}>
+            <Tabs.Tab value="customer-confirmed" leftSection={<IconUsers size={16} />} style={{ fontWeight: 600 }}>Khách chốt</Tabs.Tab>
+            <Tabs.Tab value="get-url" leftSection={<IconLink size={16} />} style={{ fontWeight: 600 }}>Tra link file</Tabs.Tab>
+            <Tabs.Tab value="push-data" leftSection={<IconUpload size={16} />} style={{ fontWeight: 600 }}>Push data</Tabs.Tab>
+            <Tabs.Tab value="update-status" leftSection={<IconTag size={16} />} style={{ fontWeight: 600 }}>Update trạng thái</Tabs.Tab>
+            <Tabs.Tab value="scrape-info" leftSection={<IconRobot size={16} />} style={{ fontWeight: 600 }}>Tự động điền Info</Tabs.Tab>
+          </Tabs.List>
+        </Card>
+
+        <Card withBorder radius="md" p="xl" style={{ minHeight: '400px' }}>
+          <Tabs.Panel value="customer-confirmed">
+            <Title order={3} mb="xs">Tìm URL khách chốt</Title>
             <Text c="dimmed" size="sm" mb="xl">Quét sheet, tìm URL có trạng thái "khách chốt" và match với file Drive tương ứng.</Text>
-            <SheetSelector label="Tên Sheet" required value={ccSheetName} onChange={setCcSheetName} />
-            <Button leftSection={<IconSearch size={16} />} onClick={searchConfirmed} loading={loading}>Tìm khách chốt</Button>
+            
+            <Group align="flex-end" gap="md" mb="xl">
+              <div style={{ flex: 1, maxWidth: 400 }}>
+                <SheetSelector label="Tên Sheet" required value={ccSheetName} onChange={setCcSheetName} />
+              </div>
+              <Button leftSection={<IconSearch size={16} />} onClick={searchConfirmed} loading={loading}>
+                Tìm khách chốt
+              </Button>
+            </Group>
             
             {ccResults.length > 0 && (
               <Table mt="xl" striped withTableBorder>
-                <Table.Thead><Table.Tr><Table.Th>URL</Table.Th><Table.Th>Sheet Name</Table.Th><Table.Th>Link Sheet</Table.Th></Table.Tr></Table.Thead>
+                <Table.Thead>
+                  <Table.Tr>
+                    <Table.Th>URL</Table.Th>
+                    <Table.Th>Sheet Name</Table.Th>
+                    <Table.Th>Link Sheet</Table.Th>
+                  </Table.Tr>
+                </Table.Thead>
                 <Table.Tbody>
                   {ccResults.map((r, i) => (
                     <Table.Tr key={i}>
-                      <Table.Td>{r.url}</Table.Td>
+                      <Table.Td style={{ wordBreak: 'break-all' }}>{r.url}</Table.Td>
                       <Table.Td>{r.sheetName}</Table.Td>
-                      <Table.Td>{r.sheetUrl ? <a href={r.sheetUrl} target="_blank">🔗 Mở file</a> : 'Chưa có'}</Table.Td>
+                      <Table.Td>{r.sheetUrl ? <a href={r.sheetUrl} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--mantine-color-indigo-filled)' }}>🔗 Mở file</a> : 'Chưa có'}</Table.Td>
                     </Table.Tr>
                   ))}
                 </Table.Tbody>
@@ -128,20 +163,28 @@ export default function ToolsTab() {
             )}
           </Tabs.Panel>
 
-          <Tabs.Panel value="get-url" pl="xl">
-            <Title order={3} mb="sm">Tra link file theo tên</Title>
+          <Tabs.Panel value="get-url">
+            <Title order={3} mb="xs">Tra link file theo tên</Title>
             <Text c="dimmed" size="sm" mb="xl">Nhập danh sách tên file (mỗi dòng 1 tên), tìm URL Google Sheets trong Drive.</Text>
-            <Textarea label="Danh sách tên file" rows={8} required mb="md" value={guItems} onChange={(e) => setGuItems(e.target.value)} />
-            <Button leftSection={<IconSearch size={16} />} onClick={getUrls} loading={loading}>Tìm URLs</Button>
+            
+            <Textarea label="Danh sách tên file" placeholder="Nhập danh sách tên file, mỗi file một dòng..." rows={8} required mb="md" value={guItems} onChange={(e) => setGuItems(e.target.value)} />
+            <Button leftSection={<IconSearch size={16} />} onClick={getUrls} loading={loading} mb="xl">
+              Tìm URLs
+            </Button>
             
             {guResults.length > 0 && (
               <Table mt="xl" striped withTableBorder>
-                <Table.Thead><Table.Tr><Table.Th>Tên</Table.Th><Table.Th>URL</Table.Th></Table.Tr></Table.Thead>
+                <Table.Thead>
+                  <Table.Tr>
+                    <Table.Th>Tên file</Table.Th>
+                    <Table.Th>URL</Table.Th>
+                  </Table.Tr>
+                </Table.Thead>
                 <Table.Tbody>
                   {guResults.map((r, i) => (
                     <Table.Tr key={i}>
                       <Table.Td>{r.name}</Table.Td>
-                      <Table.Td>{r.url ? <a href={r.url} target="_blank">{r.url}</a> : 'Không tìm thấy'}</Table.Td>
+                      <Table.Td>{r.url ? <a href={r.url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--mantine-color-indigo-filled)', wordBreak: 'break-all' }}>{r.url}</a> : 'Không tìm thấy'}</Table.Td>
                     </Table.Tr>
                   ))}
                 </Table.Tbody>
@@ -149,59 +192,87 @@ export default function ToolsTab() {
             )}
           </Tabs.Panel>
 
-          <Tabs.Panel value="push-data" pl="xl">
-            <Title order={3} mb="sm">Push data vào Google Sheets</Title>
+          <Tabs.Panel value="push-data">
+            <Title order={3} mb="xs">Push data vào Google Sheets</Title>
             <Text c="dimmed" size="sm" mb="xl">Gọi external API lấy dữ liệu Excel, fill vào đúng tab trong Google Sheets.</Text>
-            <SimpleGrid cols={2} mb="md">
-              <TextInput label="API Key" value={pdApiKey} onChange={e => setPdApiKey(e.target.value)} />
-              <TextInput label="API Base URL" value={pdApiBase} onChange={e => setPdApiBase(e.target.value)} />
+            
+            <SimpleGrid cols={{ base: 1, sm: 2 }} mb="md" gap="md">
+              <TextInput label="API Key" placeholder="Nhập API Key..." value={pdApiKey} onChange={e => setPdApiKey(e.target.value)} />
+              <TextInput label="API Base URL" placeholder="https://api.example.com" value={pdApiBase} onChange={e => setPdApiBase(e.target.value)} />
             </SimpleGrid>
-            <Text fw={500} size="sm" mb="xs">Danh sách Push Tasks</Text>
+            
+            <Text fw={600} size="sm" mb="sm" mt="lg">Danh sách Push Tasks</Text>
             {pdRows.map((r, i) => (
-              <Group key={i} mb="sm" align="flex-end">
-                <SheetSelector label="Tên Sheet" value={r.sheetName || ''} onChange={(val) => { const n = [...pdRows]; n[i].sheetName = val; setPdRows(n); }} />
-                <TextInput label="Data URL" style={{flex: 1}} value={r.dataUrl || ''} onChange={(e) => { const n = [...pdRows]; n[i].dataUrl = e.target.value; setPdRows(n); }} mb={16} />
-                <ActionIcon color="red" variant="subtle" onClick={() => setPdRows(pdRows.filter((_, idx) => idx !== i))} mb={16}><IconTrash size={16}/></ActionIcon>
+              <Group key={i} mb="sm" align="flex-end" gap="sm">
+                <div style={{ flex: 1, minWidth: 200 }}>
+                  <SheetSelector label="Tên Sheet" value={r.sheetName || ''} onChange={(val) => { const n = [...pdRows]; n[i].sheetName = val; setPdRows(n); }} />
+                </div>
+                <div style={{ flex: 2, minWidth: 300 }}>
+                  <TextInput label="Data URL" placeholder="https://..." value={r.dataUrl || ''} onChange={(e) => { const n = [...pdRows]; n[i].dataUrl = e.target.value; setPdRows(n); }} />
+                </div>
+                <ActionIcon color="red" variant="subtle" size="lg" onClick={() => setPdRows(pdRows.filter((_, idx) => idx !== i))} style={{ marginBottom: 2 }}>
+                  <IconTrash size={18}/>
+                </ActionIcon>
               </Group>
             ))}
-            <Button variant="default" leftSection={<IconPlus size={16}/>} onClick={() => setPdRows([...pdRows, {}])} mb="md">Thêm nhiệm vụ</Button>
-            <br />
-            <Button leftSection={<IconUpload size={16} />} onClick={pushData} loading={loading}>Bắt đầu push</Button>
+            
+            <Group mt="md">
+              <Button variant="default" leftSection={<IconPlus size={16}/>} onClick={() => setPdRows([...pdRows, {}])}>
+                Thêm nhiệm vụ
+              </Button>
+              <Button leftSection={<IconUpload size={16} />} onClick={pushData} loading={loading}>
+                Bắt đầu push
+              </Button>
+            </Group>
           </Tabs.Panel>
 
-          <Tabs.Panel value="update-status" pl="xl">
-            <Title order={3} mb="sm">Cập nhật trạng thái URL</Title>
+          <Tabs.Panel value="update-status">
+            <Title order={3} mb="xs">Cập nhật trạng thái URL</Title>
             <Text c="dimmed" size="sm" mb="xl">Tìm URL trong sheet và đánh dấu trạng thái vào cột chỉ định.</Text>
-            <SimpleGrid cols={2} mb="md">
+            
+            <SimpleGrid cols={{ base: 1, sm: 2 }} mb="md" gap="md">
               <SheetSelector label="Tên Sheet" required value={usSheetName} onChange={setUsSheetName} />
-              <div></div>
+              <div />
               <TextInput label="Nội dung trạng thái" placeholder="Mặc định: Đang chạy" value={usStatusText} onChange={e => setUsStatusText(e.target.value)} />
               <TextInput label="Cột ghi (VD: L, M)" placeholder="Mặc định: L" value={usStatusCol} onChange={e => setUsStatusCol(e.target.value)} />
             </SimpleGrid>
-            <Textarea label="Danh sách URLs" rows={6} required mb="md" value={usUrls} onChange={e => setUsUrls(e.target.value)} />
-            <Button leftSection={<IconTag size={16} />} onClick={updateStatus} loading={loading}>Cập nhật trạng thái</Button>
+            
+            <Textarea label="Danh sách URLs" placeholder="Nhập danh sách URL cần cập nhật, mỗi URL một dòng..." rows={6} required mb="md" value={usUrls} onChange={e => setUsUrls(e.target.value)} />
+            <Button leftSection={<IconTag size={16} />} onClick={updateStatus} loading={loading}>
+              Cập nhật trạng thái
+            </Button>
           </Tabs.Panel>
 
-          <Tabs.Panel value="scrape-info" pl="xl">
-            <Title order={3} mb="sm">Scrape & Điền Thông tin</Title>
+          <Tabs.Panel value="scrape-info">
+            <Title order={3} mb="xs">Scrape & Điền Thông tin</Title>
             <Text c="dimmed" size="sm" mb="xl">Nhập URL để tự động lấy thông tin doanh nghiệp và điền vào tab "THÔNG TIN".</Text>
-            <Textarea label="Danh sách URLs" description="Mỗi dòng 1 link" rows={6} required mb="md" value={siUrls} onChange={e => setSiUrls(e.target.value)} />
+            
+            <Textarea label="Danh sách URLs" description="Mỗi dòng 1 link" placeholder="https://..." rows={6} required mb="md" value={siUrls} onChange={e => setSiUrls(e.target.value)} />
             <DriveFileSelector label="Chọn File Spreadsheet" description="Tùy chọn - để trống = tự tìm theo URL" value={siSpreadsheetId} onChange={setSiSpreadsheetId} />
-            <Button leftSection={<IconRobot size={16} />} onClick={scrapeInfo} loading={loading}>Bắt đầu tự động điền</Button>
+            
+            <Button leftSection={<IconRobot size={16} />} onClick={scrapeInfo} loading={loading} mt="lg">
+              Bắt đầu tự động điền
+            </Button>
 
             {siResults.length > 0 && (
               <Table mt="xl" striped withTableBorder>
-                <Table.Thead><Table.Tr><Table.Th>URL</Table.Th><Table.Th>Trạng thái</Table.Th><Table.Th>Kết quả</Table.Th></Table.Tr></Table.Thead>
+                <Table.Thead>
+                  <Table.Tr>
+                    <Table.Th>URL</Table.Th>
+                    <Table.Th>Trạng thái</Table.Th>
+                    <Table.Th>Kết quả</Table.Th>
+                  </Table.Tr>
+                </Table.Thead>
                 <Table.Tbody>
                   {siResults.map((r, i) => (
                     <Table.Tr key={i}>
-                      <Table.Td>{r.url}</Table.Td>
+                      <Table.Td style={{ wordBreak: 'break-all' }}>{r.url}</Table.Td>
                       <Table.Td>
-                        {r.status === 'success' ? <Text c="teal" fw={600}>Thành công</Text> : <Text c="red" fw={600}>Lỗi</Text>}
+                        {r.status === 'success' ? <Text c="teal" fw={600} size="sm">Thành công</Text> : <Text c="red" fw={600} size="sm">Lỗi</Text>}
                       </Table.Td>
                       <Table.Td>
                         {r.status === 'success' ? (
-                          <a href={`https://docs.google.com/spreadsheets/d/${r.fileId}`} target="_blank">🔗 Mở file</a>
+                          <a href={`https://docs.google.com/spreadsheets/d/${r.fileId}`} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--mantine-color-indigo-filled)' }}>🔗 Mở file</a>
                         ) : (
                           <Text c="dimmed" size="sm">{r.error}</Text>
                         )}
@@ -212,9 +283,8 @@ export default function ToolsTab() {
               </Table>
             )}
           </Tabs.Panel>
-
-        </Tabs>
-      </Card>
+        </Card>
+      </Tabs>
     </>
   );
 }

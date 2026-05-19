@@ -2,6 +2,7 @@ import { Card, Title, Text, Group, Button, Table } from '@mantine/core';
 import { IconRefresh, IconCopy, IconBolt } from '@tabler/icons-react';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
+import { notifications } from '@mantine/notifications';
 
 export default function ConfirmedTab() {
   const [list, setList] = useState<any[]>([]);
@@ -28,17 +29,29 @@ export default function ConfirmedTab() {
     try {
       const urls = list.map(i => i.url);
       await axios.post('/api/tools/confirm-to-running', { urls });
-      alert("Đã cập nhật!");
+      notifications.show({
+        title: 'Thành công',
+        message: 'Đã cập nhật trạng thái các URL sang Đang chạy!',
+        color: 'teal',
+      });
       refresh();
     } catch (e) {
-      alert("Lỗi");
+      notifications.show({
+        title: 'Lỗi',
+        message: 'Có lỗi xảy ra khi cập nhật!',
+        color: 'red',
+      });
     }
   };
 
   const copyAll = () => {
-    const urls = list.map(i => i.sheetUrl).filter(Boolean).join("\\n");
+    const urls = list.map(i => i.sheetUrl).filter(Boolean).join("\n");
     navigator.clipboard.writeText(urls);
-    alert("Đã copy!");
+    notifications.show({
+      title: 'Đã copy',
+      message: 'Đã copy tất cả liên kết Google Sheets vào bộ nhớ tạm!',
+      color: 'teal',
+    });
   };
 
   return (

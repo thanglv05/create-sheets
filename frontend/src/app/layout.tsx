@@ -9,8 +9,8 @@ import type { Metadata } from 'next';
 const inter = Inter({ subsets: ['latin', 'vietnamese'] });
 
 export const metadata: Metadata = {
-  title: 'SheetsBot Automation',
-  description: 'Manage automation tasks for Google Sheets.',
+  title: 'Likepion Automation',
+  description: 'Likepion Google Sheets Automation System',
 };
 
 const theme = createTheme({

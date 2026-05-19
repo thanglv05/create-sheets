@@ -1,12 +1,19 @@
 @import "tailwindcss";
 
-:root {
-  background-color: #0a0a0a;
-  color: #c1c2c5;
+html[data-mantine-color-scheme="dark"] {
+  --body-bg: #0a0a0a;
+  --panel-bg: #141517;
+}
+
+html[data-mantine-color-scheme="light"] {
+  --body-bg: #f1f3f5;
+  --panel-bg: #ffffff;
 }
 
 body {
   margin: 0;
   padding: 0;
-  background-color: #0a0a0a;
+  background-color: var(--body-bg);
+  color: var(--mantine-color-text);
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
