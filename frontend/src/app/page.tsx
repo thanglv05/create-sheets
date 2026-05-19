@@ -13,6 +13,7 @@ import ConfirmedTab from '@/components/ConfirmedTab';
 import LogsTab from '@/components/LogsTab';
 import ConfigTab from '@/components/ConfigTab';
 import Splash from '@/components/Splash';
+import CatMascot from '@/components/CatMascot';
 
 import { notifications } from '@mantine/notifications';
 
@@ -56,11 +57,23 @@ function AppContent() {
   useEffect(() => {
     fetchJobs();
     fetchConfig();
-    const interval = setInterval(() => {
-      fetchJobs();
-    }, 3000);
-    return () => clearInterval(interval);
-  }, []);
+
+    const evtSource = new EventSource('/api/run/logs');
+    evtSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === 'log') {
+          useAppStore.getState().addLog(data);
+        } else if (data.type === 'status_update') {
+          fetchJobs();
+        }
+      } catch (e) {
+        console.error('SSE Error:', e);
+      }
+    };
+
+    return () => evtSource.close();
+  }, [fetchJobs, fetchConfig]);
 
   return (
     <>
@@ -119,6 +132,8 @@ function AppContent() {
           {activeTab === 'logs' && <LogsTab key="logs" />}
           {activeTab === 'config' && <ConfigTab key="config" />}
         </AppShell.Main>
+        
+        <CatMascot />
       </AppShell>
     </>
   );
