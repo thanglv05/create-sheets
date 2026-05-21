@@ -6,6 +6,8 @@ interface AppState {
   config: any;
   logs: any[];
   pendingJobs: number;
+  isQueueRunning: boolean;
+  currentJobId: string | null;
   authStatus: { authed: boolean; hasCredentials: boolean; message: string; };
   sheetNames: string[];
   driveFiles: { id: string; name: string }[];
@@ -14,6 +16,10 @@ interface AppState {
   fetchSelectors: (sourceSheetId?: string) => Promise<void>;
   startQueue: () => Promise<void>;
   addLog: (log: any) => void;
+  setQueueStatus: (status: { running: boolean; currentJobId: string | null }) => void;
+  patchJobProgress: (jobId: string, current: number, total: number) => void;
+  patchJobLog: (jobId: string, log: any) => void;
+  patchJobsFromList: (updatedJobs: any[]) => void;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -21,6 +27,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   config: null,
   logs: [],
   pendingJobs: 0,
+  isQueueRunning: false,
+  currentJobId: null,
   authStatus: { authed: false, hasCredentials: false, message: 'Đang kết nối...' },
   sheetNames: [],
   driveFiles: [],
@@ -29,9 +37,15 @@ export const useAppStore = create<AppState>((set, get) => ({
     try {
       const res = await axios.get('/api/run/jobs');
       const jobs = res.data || [];
+      
+      // Also fetch current queue status
+      const statusRes = await axios.get('/api/run/status');
+      
       set({ 
         jobs,
-        pendingJobs: jobs.filter((j: any) => j.status === 'pending').length 
+        pendingJobs: jobs.filter((j: any) => j.status === 'pending').length,
+        isQueueRunning: !!statusRes.data?.running,
+        currentJobId: statusRes.data?.currentJobId || null
       });
     } catch (e: any) {
       console.error(e);
@@ -79,5 +93,32 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
-  addLog: (log) => set((state) => ({ logs: [...state.logs, log].slice(-1000) }))
+  addLog: (log) => set((state) => ({ logs: [...state.logs, log].slice(-1000) })),
+  
+  setQueueStatus: (status) => set({ 
+    isQueueRunning: status.running, 
+    currentJobId: status.currentJobId 
+  }),
+
+  patchJobProgress: (jobId, current, total) => set((state) => ({
+    jobs: state.jobs.map(j => j.id === jobId ? { ...j, progress: { current, total } } : j)
+  })),
+
+  patchJobLog: (jobId, log) => set((state) => ({
+    jobs: state.jobs.map(j => j.id === jobId 
+      ? { ...j, logs: [...(j.logs || []), log].slice(-500) } 
+      : j
+    )
+  })),
+
+  patchJobsFromList: (updatedJobs) => set((state) => {
+    // Merge updated fields (status, progress, startedAt, completedAt, error) but keep existing logs
+    const logsMap = new Map(state.jobs.map(j => [j.id, j.logs || []]));
+    return {
+      jobs: updatedJobs.map(j => ({ ...j, logs: logsMap.get(j.id) || [] })),
+      pendingJobs: updatedJobs.filter((j: any) => j.status === 'pending').length,
+      isQueueRunning: updatedJobs.some((j: any) => j.status === 'running'),
+      currentJobId: updatedJobs.find((j: any) => j.status === 'running')?.id || null,
+    };
+  }),
 }));

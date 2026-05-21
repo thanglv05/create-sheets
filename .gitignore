@@ -4,3 +4,5 @@ config.json
 node_modules/
 .env
 *.log
+data/
+frontend/out/_next/

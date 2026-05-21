@@ -63,13 +63,29 @@ router.post("/customer-confirmed", async (req, res) => {
 // ===== POST /api/tools/push-data-groups =====
 router.post("/push-data-groups", async (req, res) => {
   try {
-    const { groups } = req.body;
-    if (!groups || !groups.length) return res.status(400).json({ error: "Dữ liệu nhóm là bắt buộc" });
+    const cfg = loadConfig();
+    const { apiKey, apiBase, groups, services } = req.body;
+    
+    if (!groups || !groups.length) {
+      return res.status(400).json({ error: "Dữ liệu nhóm là bắt buộc" });
+    }
 
-    const { runJobManually } = require("../core/processor");
-    const jobId = await runJobManually("Push Data Manual", groups);
+    const { addJob, startQueue } = require("../core/jobQueue");
+    
+    const jobConfig = {
+      type: "push-data",
+      apiKey: apiKey || cfg.pushDataApiKey,
+      apiBase: apiBase || cfg.pushDataApiBase,
+      groups,
+      services
+    };
 
-    res.json({ success: true, jobId, message: "Đã tạo job xử lý" });
+    const job = addJob(jobConfig, `Push Data (${groups.length} nhóm)`);
+    
+    // Bắt đầu chạy queue
+    await startQueue();
+
+    res.json({ success: true, jobId: job.id, message: "Đã tạo job push data và bắt đầu xử lý" });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -228,6 +244,108 @@ router.get("/drive-files", async (req, res) => {
     const files = await listFiles(folderId, "mimeType = 'application/vnd.google-apps.spreadsheet'");
     res.json({ success: true, files });
   } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ===== GET /api/tools/sheet-overview =====
+// Đọc toàn bộ dữ liệu sheet nguồn, trả về danh sách URL groups với trạng thái
+router.get("/sheet-overview", async (req, res) => {
+  try {
+    const cfg = loadConfig();
+    const sourceSheetId = req.query.sourceSheetId || cfg.sourceSheetId;
+    const sheetName = req.query.sheetName;
+
+    if (!sourceSheetId) return res.status(400).json({ error: "Chưa cấu hình Source Sheet ID" });
+
+    const { readRange, getSpreadsheet } = require("../services/sheets.service");
+
+    // Nếu không truyền sheetName thì lấy tab đầu tiên
+    let targetSheet = sheetName;
+    if (!targetSheet) {
+      const meta = await getSpreadsheet(sourceSheetId);
+      targetSheet = meta.sheets[0]?.properties?.title;
+    }
+    if (!targetSheet) return res.status(400).json({ error: "Không tìm thấy tab sheet nào" });
+
+    // Đọc từ A2 đến M để lấy đủ: A-G (các cột thông tin), H (URL), I (count), J (service), K (sheet name), L (status), M (...)
+    const rows = await readRange(sourceSheetId, `${targetSheet}!A2:M`);
+
+    // Parse thành danh sách URL groups
+    const groups = [];
+    let currentGroup = null;
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      const colH = (row[7] || "").trim();  // URL (cột H = index 7)
+      const colI = (row[8] || "").trim();  // Count (cột I = index 8)
+      const colJ = (row[9] || "").trim();  // Service (cột J = index 9)
+      const colK = (row[10] || "").trim(); // Sheet name (cột K = index 10)
+      const colL = (row[11] || "").trim(); // Status (cột L = index 11)
+
+      if (colH.startsWith("http")) {
+        // Bắt đầu group mới
+        currentGroup = {
+          rowIndex: i + 2,  // 1-indexed, bắt đầu từ dòng 2
+          url: colH,
+          sheetName: colK || null,
+          sheetUrl: colK ? `https://docs.google.com/spreadsheets/d/${colK}`.includes('http') ? colK : null : null,
+          status: colL || "pending",
+          services: [],
+          hasFile: !!colK && !colK.startsWith("http") ? false : !!colK,
+        };
+
+        // Nếu colK là một link Google Sheets thực sự
+        if (colK && colK.startsWith("http")) {
+          currentGroup.sheetUrl = colK;
+          currentGroup.sheetName = null;
+          currentGroup.hasFile = true;
+        } else if (colK && !colK.startsWith("http")) {
+          // colK là tên sheet
+          currentGroup.sheetName = colK;
+          currentGroup.sheetUrl = null;
+          currentGroup.hasFile = false;
+        }
+
+        groups.push(currentGroup);
+      }
+
+      // Thêm dịch vụ vào group hiện tại
+      if (currentGroup && colI && colJ) {
+        currentGroup.services.push({ count: colI, name: colJ });
+      }
+
+      // Cập nhật status và sheetUrl từ các row con
+      if (currentGroup && colL && !currentGroup.status) {
+        currentGroup.status = colL;
+      }
+      if (currentGroup && colL) {
+        // Lấy status từ dòng cuối cùng của group
+        currentGroup.status = colL;
+      }
+    }
+
+    // Thống kê tổng hợp
+    const stats = {
+      total: groups.length,
+      hasFile: groups.filter(g => g.hasFile).length,
+      noFile: groups.filter(g => !g.hasFile).length,
+      byStatus: {},
+    };
+    groups.forEach(g => {
+      const s = (g.status || "").toLowerCase() || "chưa có";
+      stats.byStatus[s] = (stats.byStatus[s] || 0) + 1;
+    });
+
+    res.json({
+      success: true,
+      sheetName: targetSheet,
+      sourceSheetId,
+      groups,
+      stats,
+    });
+  } catch (err) {
+    console.error("[SheetOverview]", err);
     res.status(500).json({ error: err.message });
   }
 });

@@ -1,7 +1,18 @@
 'use client';
 import { AppShell, Burger, Group, NavLink, Badge, Text, Button, Indicator, ActionIcon, useMantineColorScheme } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
-import { IconLayoutDashboard, IconListCheck, IconTool, IconUserCheck, IconTerminal, IconSettings, IconSun, IconMoon, IconPlayerPlay } from '@tabler/icons-react';
+import { 
+  IconLayoutDashboard, 
+  IconListCheck, 
+  IconTool, 
+  IconUserCheck, 
+  IconTerminal, 
+  IconSettings, 
+  IconSun, 
+  IconMoon, 
+  IconPlayerPlay,
+  IconTable
+} from '@tabler/icons-react';
 import { useState, useEffect, Suspense } from 'react';
 import { useAppStore } from '@/store/useAppStore';
 import { useSearchParams, useRouter } from 'next/navigation';
@@ -11,6 +22,8 @@ import JobsTab from '@/components/JobsTab';
 import ToolsTab from '@/components/ToolsTab';
 import ConfirmedTab from '@/components/ConfirmedTab';
 import ConfigTab from '@/components/ConfigTab';
+import LogsTab from '@/components/LogsTab';
+import SheetOverviewTab from '@/components/SheetOverviewTab';
 import Splash from '@/components/Splash';
 import CatMascot from '@/components/CatMascot';
 
@@ -28,9 +41,17 @@ function AppContent() {
     router.push(`/?tab=${tab}`);
   };
   
-  const { fetchJobs, fetchConfig, authStatus, pendingJobs, startQueue } = useAppStore();
+  const { fetchJobs, fetchConfig, authStatus, pendingJobs, isQueueRunning, startQueue } = useAppStore();
 
   const handleStartQueue = async () => {
+    if (isQueueRunning) {
+      notifications.show({
+        title: 'Hàng đợi',
+        message: 'Hệ thống hàng đợi đang chạy và xử lý tác vụ ngầm!',
+        color: 'teal',
+      });
+      return;
+    }
     if (pendingJobs === 0) {
       notifications.show({
         title: 'Trống',
@@ -59,19 +80,59 @@ function AppContent() {
     fetchJobs();
     fetchConfig();
 
-    const evtSource = new EventSource('/api/run/logs');
-    evtSource.onmessage = (event) => {
+    const evtSource = new EventSource('/api/run/stream');
+
+    // Initial state on connect
+    evtSource.addEventListener('init', (e: MessageEvent) => {
       try {
-        const data = JSON.parse(event.data);
-        if (data.type === 'log') {
-          useAppStore.getState().addLog(data);
-        } else if (data.type === 'status_update') {
-          fetchJobs();
-        }
-      } catch (e) {
-        console.error('SSE Error:', e);
-      }
-    };
+        const data = JSON.parse(e.data);
+        if (data.jobs) useAppStore.getState().patchJobsFromList(data.jobs);
+        if (data.status) useAppStore.getState().setQueueStatus(data.status);
+      } catch {}
+    });
+
+    // Job list updated (status change: pending→running→done/error)
+    evtSource.addEventListener('jobs_updated', (e: MessageEvent) => {
+      try {
+        const jobs = JSON.parse(e.data);
+        useAppStore.getState().patchJobsFromList(jobs);
+      } catch {}
+    });
+
+    // Individual job progress update
+    evtSource.addEventListener('job_progress', (e: MessageEvent) => {
+      try {
+        const { jobId, current, total } = JSON.parse(e.data);
+        useAppStore.getState().patchJobProgress(jobId, current, total);
+      } catch {}
+    });
+
+    // Individual job log line
+    evtSource.addEventListener('job_log', (e: MessageEvent) => {
+      try {
+        const { jobId, ...log } = JSON.parse(e.data);
+        useAppStore.getState().patchJobLog(jobId, log);
+        useAppStore.getState().addLog(log);
+      } catch {}
+    });
+
+    // Queue running status
+    evtSource.addEventListener('queue_status', (e: MessageEvent) => {
+      try {
+        const status = JSON.parse(e.data);
+        useAppStore.getState().setQueueStatus({
+          running: status.running,
+          currentJobId: status.currentJobId || null,
+        });
+      } catch {}
+    });
+
+    // Generic log (for LogsTab)
+    evtSource.addEventListener('log', (e: MessageEvent) => {
+      try {
+        useAppStore.getState().addLog(JSON.parse(e.data));
+      } catch {}
+    });
 
     return () => evtSource.close();
   }, [fetchJobs, fetchConfig]);
@@ -116,8 +177,15 @@ function AppContent() {
                 {dark ? <IconSun size={18} /> : <IconMoon size={18} />}
               </ActionIcon>
 
-              <Button leftSection={<IconPlayerPlay size={16} />} onClick={handleStartQueue} variant="gradient" gradient={{ from: 'indigo', to: 'cyan' }} radius="md" fw={600}>
-                Chạy Queue
+              <Button 
+                leftSection={<IconPlayerPlay size={16} />} 
+                onClick={handleStartQueue} 
+                variant="gradient" 
+                gradient={{ from: 'indigo', to: 'cyan' }} 
+                radius="md" 
+                fw={600}
+              >
+                {isQueueRunning ? 'Queue Đang Chạy' : 'Chạy Queue'}
               </Button>
             </Group>
           </Group>
@@ -129,8 +197,11 @@ function AppContent() {
         }}>
           <NavLink label="Dashboard" leftSection={<IconLayoutDashboard size="1.1rem" stroke={1.5} />} active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} style={{ borderRadius: '8px', marginBottom: 4 }} variant={activeTab === 'dashboard' ? 'light' : 'subtle'} color="indigo" />
           <NavLink label="Danh sách Jobs" leftSection={<IconListCheck size="1.1rem" stroke={1.5} />} rightSection={pendingJobs > 0 && <Badge size="xs" color="indigo" variant="filled">{pendingJobs}</Badge>} active={activeTab === 'jobs'} onClick={() => setActiveTab('jobs')} style={{ borderRadius: '8px', marginBottom: 4 }} variant={activeTab === 'jobs' ? 'light' : 'subtle'} color="indigo" />
+          <NavLink label="Tổng quan Sheet" leftSection={<IconTable size="1.1rem" stroke={1.5} />} active={activeTab === 'sheet-overview'} onClick={() => setActiveTab('sheet-overview')} style={{ borderRadius: '8px', marginBottom: 4 }} variant={activeTab === 'sheet-overview' ? 'light' : 'subtle'} color="indigo" />
           <NavLink label="Công cụ" leftSection={<IconTool size="1.1rem" stroke={1.5} />} active={activeTab === 'tools'} onClick={() => setActiveTab('tools')} style={{ borderRadius: '8px', marginBottom: 4 }} variant={activeTab === 'tools' ? 'light' : 'subtle'} color="indigo" />
           <NavLink label="Khách chốt" leftSection={<IconUserCheck size="1.1rem" stroke={1.5} />} active={activeTab === 'confirmed'} onClick={() => setActiveTab('confirmed')} style={{ borderRadius: '8px', marginBottom: 4 }} variant={activeTab === 'confirmed' ? 'light' : 'subtle'} color="indigo" />
+          
+          <NavLink label="Terminal Logs" leftSection={<IconTerminal size="1.1rem" stroke={1.5} />} active={activeTab === 'logs'} onClick={() => setActiveTab('logs')} style={{ borderRadius: '8px', marginBottom: 4 }} variant={activeTab === 'logs' ? 'light' : 'subtle'} color="indigo" />
           
           <Text c="dimmed" size="xs" fw={700} mt="xl" mb="sm" ml="xs" tt="uppercase" lts={1}>Hệ thống</Text>
           <NavLink label="Cấu hình" leftSection={<IconSettings size="1.1rem" stroke={1.5} />} active={activeTab === 'config'} onClick={() => setActiveTab('config')} style={{ borderRadius: '8px', marginBottom: 4 }} variant={activeTab === 'config' ? 'light' : 'subtle'} color="indigo" />
@@ -139,9 +210,11 @@ function AppContent() {
         <AppShell.Main>
           {activeTab === 'dashboard' && <DashboardTab key="dashboard" />}
           {activeTab === 'jobs' && <JobsTab key="jobs" />}
+          {activeTab === 'sheet-overview' && <SheetOverviewTab key="sheet-overview" />}
           {activeTab === 'tools' && <ToolsTab key="tools" />}
           {activeTab === 'confirmed' && <ConfirmedTab key="confirmed" />}
           {activeTab === 'config' && <ConfigTab key="config" />}
+          {activeTab === 'logs' && <LogsTab key="logs" />}
         </AppShell.Main>
         
         <CatMascot />

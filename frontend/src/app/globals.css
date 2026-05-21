@@ -17,3 +17,8 @@ body {
   color: var(--mantine-color-text);
   transition: background-color 0.2s ease, color 0.2s ease;
 }
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.4; transform: scale(1.4); }
+}

@@ -1,11 +1,13 @@
 'use client';
-import { Card, Title, Text, Tabs, TextInput, Textarea, Button, Table, Group, SimpleGrid, ActionIcon } from '@mantine/core';
-import { IconUsers, IconLink, IconUpload, IconTag, IconRobot, IconSearch, IconPlus, IconTrash } from '@tabler/icons-react';
-import { useState } from 'react';
+import { Card, Title, Text, Tabs, TextInput, Textarea, Button, Table, Group, SimpleGrid, ActionIcon, MultiSelect, SegmentedControl, Collapse } from '@mantine/core';
+import { IconUsers, IconLink, IconUpload, IconTag, IconRobot, IconSearch, IconPlus, IconTrash, IconSettings } from '@tabler/icons-react';
+import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { notifications } from '@mantine/notifications';
+import { useDisclosure } from '@mantine/hooks';
 import SheetSelector from './SheetSelector';
 import DriveFileSelector from './DriveFileSelector';
+import { useAppStore } from '@/store/useAppStore';
 
 const tabLabels: Record<string, string> = {
   'customer-confirmed': 'Khách chốt',
@@ -24,9 +26,46 @@ export default function ToolsTab() {
   const [guItems, setGuItems] = useState('');
   const [guResults, setGuResults] = useState<any[]>([]);
 
-  const [pdRows, setPdRows] = useState<any[]>([{}]);
+  const { config } = useAppStore();
+  const [pdRows, setPdRows] = useState<any[]>([{ sheetIdOrUrl: '', setId: '' }]);
   const [pdApiBase, setPdApiBase] = useState('');
   const [pdApiKey, setPdApiKey] = useState('');
+  const [inputMode, setInputMode] = useState<'manual' | 'bulk'>('manual');
+  const [bulkText, setBulkText] = useState('');
+  const [selectedServices, setSelectedServices] = useState<string[]>([]);
+  const [advancedOpened, { toggle: toggleAdvanced }] = useDisclosure(false);
+
+  // Prefill API Key and Base from config
+  useEffect(() => {
+    if (config) {
+      if (!pdApiKey && config.pushDataApiKey) {
+        setPdApiKey(config.pushDataApiKey);
+      }
+      if (!pdApiBase && config.pushDataApiBase) {
+        setPdApiBase(config.pushDataApiBase);
+      }
+    }
+  }, [config, pdApiKey, pdApiBase]);
+
+  const handleBulkImport = () => {
+    const tasks = parseBulkText(bulkText);
+    if (tasks.length > 0) {
+      setPdRows(tasks);
+      notifications.show({
+        title: 'Nhập thành công',
+        message: `Đã tự động phân tích và thêm ${tasks.length} nhóm vào bảng!`,
+        color: 'teal'
+      });
+      setInputMode('manual');
+      setBulkText('');
+    } else {
+      notifications.show({
+        title: 'Thất bại',
+        message: 'Không tìm thấy ID bộ hoặc link nào hợp lệ trong nội dung!',
+        color: 'red'
+      });
+    }
+  };
   
   const [usSheetName, setUsSheetName] = useState('');
   const [usStatusText, setUsStatusText] = useState('');
@@ -65,9 +104,31 @@ export default function ToolsTab() {
   const pushData = async () => {
     setLoading(true);
     try {
-      const groups = pdRows.filter(r => r.sheetName && r.dataUrl).map(r => ({ sheetName: r.sheetName, dataUrl: r.dataUrl }));
-      await axios.post('/api/tools/push-data-groups', { apiKey: pdApiKey, apiBase: pdApiBase, groups });
-      notifications.show({ title: 'Thành công', message: 'Push data hoàn tất!', color: 'teal' });
+      const groups = pdRows
+        .filter(r => r.sheetIdOrUrl && r.setId)
+        .map(r => ({ sheetIdOrUrl: r.sheetIdOrUrl.trim(), setId: r.setId.trim() }));
+      
+      if (groups.length === 0) {
+        notifications.show({ 
+          title: 'Cảnh báo', 
+          message: 'Vui lòng nhập ít nhất một nhiệm vụ hợp lệ (có đủ Sheet/URL và Set ID)!', 
+          color: 'orange' 
+        });
+        return;
+      }
+
+      await axios.post('/api/tools/push-data-groups', { 
+        apiKey: pdApiKey, 
+        apiBase: pdApiBase, 
+        groups,
+        services: selectedServices
+      });
+      notifications.show({ 
+        title: 'Đã tạo Job', 
+        message: `Đã tạo job push data cho ${groups.length} nhóm thành công! Bạn có thể xem logs ở tab Terminal Logs.`, 
+        color: 'teal',
+        autoClose: 8000
+      });
     } catch (e: any) {
       notifications.show({ title: 'Lỗi', message: e.response?.data?.error || e.message, color: 'red' });
     } finally {
@@ -184,7 +245,7 @@ export default function ToolsTab() {
                   {guResults.map((r, i) => (
                     <Table.Tr key={i}>
                       <Table.Td>{r.name}</Table.Td>
-                      <Table.Td>{r.url ? <a href={r.url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--mantine-color-indigo-filled)', wordBreak: 'break-all' }}>{r.url}</a> : 'Không tìm thấy'}</Table.Td>
+                      <Table.Td>{r.url ? <a href={r.url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--mantine-color-indigo-filled)', wordBreak: 'break-all' }}>{r.url}</a> : <Text c="red" size="sm" fw={500}>Không tìm thấy</Text>}</Table.Td>
                     </Table.Tr>
                   ))}
                 </Table.Tbody>
@@ -196,34 +257,146 @@ export default function ToolsTab() {
             <Title order={3} mb="xs">Push data vào Google Sheets</Title>
             <Text c="dimmed" size="sm" mb="xl">Gọi external API lấy dữ liệu Excel, fill vào đúng tab trong Google Sheets.</Text>
             
-            <SimpleGrid cols={{ base: 1, sm: 2 }} mb="md" gap="md">
-              <TextInput label="API Key" placeholder="Nhập API Key..." value={pdApiKey} onChange={e => setPdApiKey(e.target.value)} />
-              <TextInput label="API Base URL" placeholder="https://api.example.com" value={pdApiBase} onChange={e => setPdApiBase(e.target.value)} />
-            </SimpleGrid>
-            
-            <Text fw={600} size="sm" mb="sm" mt="lg">Danh sách Push Tasks</Text>
-            {pdRows.map((r, i) => (
-              <Group key={i} mb="sm" align="flex-end" gap="sm">
-                <div style={{ flex: 1, minWidth: 200 }}>
-                  <SheetSelector label="Tên Sheet" value={r.sheetName || ''} onChange={(val) => { const n = [...pdRows]; n[i].sheetName = val; setPdRows(n); }} />
-                </div>
-                <div style={{ flex: 2, minWidth: 300 }}>
-                  <TextInput label="Data URL" placeholder="https://..." value={r.dataUrl || ''} onChange={(e) => { const n = [...pdRows]; n[i].dataUrl = e.target.value; setPdRows(n); }} />
-                </div>
-                <ActionIcon color="red" variant="subtle" size="lg" onClick={() => setPdRows(pdRows.filter((_, idx) => idx !== i))} style={{ marginBottom: 2 }}>
-                  <IconTrash size={18}/>
-                </ActionIcon>
-              </Group>
-            ))}
-            
-            <Group mt="md">
-              <Button variant="default" leftSection={<IconPlus size={16}/>} onClick={() => setPdRows([...pdRows, {}])}>
-                Thêm nhiệm vụ
-              </Button>
-              <Button leftSection={<IconUpload size={16} />} onClick={pushData} loading={loading}>
-                Bắt đầu push
+            {/* Advanced config collapse */}
+            <Group justify="flex-end" mb="md">
+              <Button variant="subtle" size="xs" color="gray" leftSection={<IconSettings size={14} />} onClick={toggleAdvanced}>
+                {advancedOpened ? 'Ẩn cấu hình nâng cao' : 'Hiện cấu hình nâng cao (API Key / Base URL)'}
               </Button>
             </Group>
+            
+            <Collapse in={advancedOpened}>
+              <Card withBorder p="md" mb="md" radius="md">
+                <SimpleGrid cols={{ base: 1, sm: 2 }} gap="md">
+                  <TextInput label="API Key" placeholder="Nhập API Key..." value={pdApiKey} onChange={e => setPdApiKey(e.target.value)} />
+                  <TextInput label="API Base URL" placeholder="https://api.example.com" value={pdApiBase} onChange={e => setPdApiBase(e.target.value)} />
+                </SimpleGrid>
+              </Card>
+            </Collapse>
+
+            {config?.nameMap && (
+              <MultiSelect
+                label="Chọn Dịch vụ chạy Push Data"
+                placeholder="-- Mặc định chạy tất cả các dịch vụ khớp --"
+                data={Object.keys(config.nameMap)}
+                value={selectedServices}
+                onChange={setSelectedServices}
+                mb="lg"
+                clearable
+                searchable
+              />
+            )}
+
+            {/* Segmented Control Mode Selection */}
+            <SegmentedControl
+              value={inputMode}
+              onChange={(val) => setInputMode(val as 'manual' | 'bulk')}
+              data={[
+                { label: 'Nhập thủ công (Dạng bảng)', value: 'manual' },
+                { label: 'Nhập nhanh nhiều nhóm (Bulk Import)', value: 'bulk' },
+              ]}
+              mb="lg"
+              fullWidth
+            />
+
+            {inputMode === 'bulk' && (
+              <Card withBorder p="md" mb="xl" radius="md" style={{ backgroundColor: 'rgba(77, 171, 247, 0.05)' }}>
+                <Text fw={600} size="sm" mb="xs">Dán nội dung chứa ID bộ và Link/URL</Text>
+                <Text size="xs" c="dimmed" mb="md">
+                  Bạn có thể dán danh sách ngăn cách bởi dấu gạch đứng (|), dấu phẩy, dấu chấm phẩy hoặc khoảng trắng (Ví dụ: <b>ID bộ | Link Sheet hoặc ID Sheet</b>), hệ thống sẽ tự động ghép cặp.
+                </Text>
+                <Textarea 
+                  placeholder="Ví dụ 1 (Định dạng ID | URL Sheet):&#10;019e2eba-bede-763d-9152-3c76ad000fee | https://docs.google.com/spreadsheets/d/1gQwCLvj...&#10;&#10;Ví dụ 2 (Định dạng ID | URL Website):&#10;019e2eba-bede-763d-9152-3c76ad000fee | https://enterhome.com.vn/du-an-van-phong&#10;&#10;Ví dụ 3 (Tin nhắn mẫu):&#10;019e2eba-bede-763d-9152-3c76ad000fee&#10;https://enterhome.com.vn/du-an-van-phong" 
+                  rows={10}
+                  value={bulkText}
+                  onChange={(e) => setBulkText(e.target.value)}
+                  mb="md"
+                />
+                <Group justify="flex-end">
+                  <Button color="teal" onClick={handleBulkImport}>
+                    Phân tích & Thêm vào danh sách
+                  </Button>
+                </Group>
+              </Card>
+            )}
+
+            {inputMode === 'manual' && (
+              <Card withBorder p="md" radius="md" mb="xl">
+                <Group justify="space-between" mb="md">
+                  <Text fw={600} size="sm">Danh sách Tasks cần chạy ({pdRows.length})</Text>
+                  {pdRows.length > 0 && (
+                    <Button variant="subtle" color="red" size="xs" onClick={() => setPdRows([])}>
+                      Xóa tất cả
+                    </Button>
+                  )}
+                </Group>
+
+                {pdRows.length === 0 ? (
+                  <Text c="dimmed" fs="italic" py="xl" ta="center">
+                    Chưa có dòng dữ liệu nào. Hãy thêm dòng mới hoặc chuyển sang tab &quot;Nhập nhanh&quot; để dán hàng loạt.
+                  </Text>
+                ) : (
+                  <Table striped withTableBorder mb="md">
+                    <Table.Thead>
+                      <Table.Tr>
+                        <Table.Th style={{ width: '50px' }}>#</Table.Th>
+                        <Table.Th>URL Web / Link Sheet / ID Sheet</Table.Th>
+                        <Table.Th style={{ width: '320px' }}>ID bộ dữ liệu (Set ID)</Table.Th>
+                        <Table.Th style={{ width: '70px', textAlign: 'center' }}>Xóa</Table.Th>
+                      </Table.Tr>
+                    </Table.Thead>
+                    <Table.Tbody>
+                      {pdRows.map((r, i) => (
+                        <Table.Tr key={i}>
+                          <Table.Td style={{ verticalAlign: 'middle', fontWeight: 500 }}>{i + 1}</Table.Td>
+                          <Table.Td style={{ verticalAlign: 'middle' }}>
+                            <TextInput
+                              placeholder="Dán link Google Sheets, ID, hoặc URL website..."
+                              value={r.sheetIdOrUrl || ''}
+                              onChange={(e) => {
+                                const n = [...pdRows];
+                                n[i].sheetIdOrUrl = e.target.value;
+                                setPdRows(n);
+                              }}
+                              variant="unstyled"
+                              style={{ borderBottom: '1px dashed #dee2e6' }}
+                            />
+                          </Table.Td>
+                          <Table.Td style={{ verticalAlign: 'middle' }}>
+                            <TextInput
+                              placeholder="Nhập ID bộ (uuid)..."
+                              value={r.setId || ''}
+                              onChange={(e) => {
+                                const n = [...pdRows];
+                                n[i].setId = e.target.value;
+                                setPdRows(n);
+                              }}
+                              variant="unstyled"
+                              style={{ borderBottom: '1px dashed #dee2e6' }}
+                            />
+                          </Table.Td>
+                          <Table.Td style={{ verticalAlign: 'middle', textAlign: 'center' }}>
+                            <ActionIcon color="red" variant="subtle" onClick={() => setPdRows(pdRows.filter((_, idx) => idx !== i))}>
+                              <IconTrash size={16} />
+                            </ActionIcon>
+                          </Table.Td>
+                        </Table.Tr>
+                      ))}
+                    </Table.Tbody>
+                  </Table>
+                )}
+
+                <Group justify="space-between" mt="md">
+                  <Button variant="default" leftSection={<IconPlus size={16}/>} onClick={() => setPdRows([...pdRows, { sheetIdOrUrl: '', setId: '' }])}>
+                    Thêm dòng nhiệm vụ
+                  </Button>
+                  {pdRows.length > 0 && (
+                    <Button leftSection={<IconUpload size={16} />} onClick={pushData} loading={loading}>
+                      Bắt đầu push ({pdRows.length} jobs)
+                    </Button>
+                  )}
+                </Group>
+              </Card>
+            )}
           </Tabs.Panel>
 
           <Tabs.Panel value="update-status">
@@ -287,4 +460,79 @@ export default function ToolsTab() {
       </Tabs>
     </>
   );
+}
+
+function parseBulkText(text: string) {
+  const lines = text.split('\n').map(line => line.trim()).filter(line => line);
+  const tasks: { sheetIdOrUrl: string; setId: string }[] = [];
+  
+  for (const line of lines) {
+    // 1. Thử phân tách bằng ký tự đặc biệt: | hoặc tab hoặc dấu phẩy hoặc chấm phẩy
+    const parts = line.split(/[|,\t;]/).map(p => p.trim()).filter(p => p);
+    if (parts.length >= 2) {
+      let setId = '';
+      let sheetIdOrUrl = '';
+      
+      const isPart0Uuid = /^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}$/.test(parts[0]);
+      const isPart1Uuid = /^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}$/.test(parts[1]);
+      
+      if (isPart0Uuid) {
+        setId = parts[0];
+        sheetIdOrUrl = parts[1];
+      } else if (isPart1Uuid) {
+        setId = parts[1];
+        sheetIdOrUrl = parts[0];
+      } else {
+        // Fallback: mặc định phần đầu là ID bộ, phần sau là Sheet
+        setId = parts[0];
+        sheetIdOrUrl = parts[1];
+      }
+      
+      if (setId && sheetIdOrUrl) {
+        tasks.push({ setId, sheetIdOrUrl });
+        continue;
+      }
+    }
+  }
+
+  // 2. Nếu không tìm thấy dòng nào dạng phân tách, thử quét UUID và URL xen kẽ
+  if (tasks.length === 0) {
+    let currentUuid = null;
+    for (const line of lines) {
+      const uuidMatch = line.match(/^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}$/);
+      if (uuidMatch) {
+        currentUuid = line;
+        continue;
+      }
+
+      if (line.startsWith('http://') || line.startsWith('https://')) {
+        if (currentUuid) {
+          tasks.push({
+            setId: currentUuid,
+            sheetIdOrUrl: line
+          });
+          currentUuid = null;
+        }
+      }
+    }
+  }
+
+  // 3. Fallback cuối cùng: Quét tất cả các ID và URL trong khối văn bản rồi ghép cặp theo thứ tự
+  if (tasks.length === 0) {
+    const uuids = text.match(/[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}/g) || [];
+    const urls = text.match(/https?:\/\/[^\s]+/g) || [];
+    const cleanUrls = urls.filter(url => !url.includes('docs.google.com') && !url.includes('api'));
+    const sheetUrls = urls.filter(url => url.includes('docs.google.com'));
+    const targetUrls = sheetUrls.length > 0 ? sheetUrls : cleanUrls;
+
+    const minLength = Math.min(uuids.length, targetUrls.length);
+    for (let i = 0; i < minLength; i++) {
+      tasks.push({
+        setId: uuids[i],
+        sheetIdOrUrl: targetUrls[i]
+      });
+    }
+  }
+
+  return tasks;
 }

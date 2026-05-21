@@ -57,39 +57,40 @@ export default function ConfirmedTab() {
   return (
     <>
       <Card withBorder radius="md" p="xl">
-      <Group justify="space-between" mb="lg">
-        <div>
-          <Title order={3}>Quản lý khách đã chốt</Title>
-        </div>
-        <Group>
-          <Button variant="default" leftSection={<IconRefresh size={16} />} onClick={refresh} loading={loading}>Tải lại</Button>
-          <Button variant="default" leftSection={<IconCopy size={16} />} onClick={copyAll}>Copy link Sheets</Button>
-          <Button leftSection={<IconBolt size={16} />} onClick={bulkRunning}>Chuyển &quot;Đang chạy&quot;</Button>
+        <Group justify="space-between" mb="lg">
+          <div>
+            <Title order={3}>Quản lý khách đã chốt</Title>
+            <Text size="xs" c="dimmed" mt={2}>Xem các liên kết đã xác định trạng thái khách chốt và cập nhật hàng loạt</Text>
+          </div>
+          <Group>
+            <Button variant="default" leftSection={<IconRefresh size={16} />} onClick={refresh} loading={loading}>Tải lại</Button>
+            <Button variant="default" leftSection={<IconCopy size={16} />} onClick={copyAll}>Copy link Sheets</Button>
+            <Button leftSection={<IconBolt size={16} />} onClick={bulkRunning}>Chuyển &quot;Đang chạy&quot;</Button>
+          </Group>
         </Group>
-      </Group>
 
-      {list.length === 0 ? (
-        <Text c="dimmed">Không có khách nào đang ở trạng thái khách chốt.</Text>
-      ) : (
-        <Table striped withTableBorder>
-          <Table.Thead>
-            <Table.Tr>
-              <Table.Th>URL Khách</Table.Th>
-              <Table.Th>Link Sheet</Table.Th>
-              <Table.Th>Tên Sheet (K)</Table.Th>
-            </Table.Tr>
-          </Table.Thead>
-          <Table.Tbody>
-            {list.map((item, i) => (
-              <Table.Tr key={i}>
-                <Table.Td>{item.url}</Table.Td>
-                <Table.Td>{item.sheetUrl ? <a href={item.sheetUrl} target="_blank">Mở Sheet</a> : 'Chưa có file'}</Table.Td>
-                <Table.Td>{item.sheetName}</Table.Td>
+        {list.length === 0 ? (
+          <Text c="dimmed" fs="italic" py="lg" ta="center">Không có khách nào đang ở trạng thái khách chốt.</Text>
+        ) : (
+          <Table striped withTableBorder>
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th>URL Khách</Table.Th>
+                <Table.Th>Link Sheet</Table.Th>
+                <Table.Th>Tên Sheet (K)</Table.Th>
               </Table.Tr>
-            ))}
-          </Table.Tbody>
-        </Table>
-      )}
+            </Table.Thead>
+            <Table.Tbody>
+              {list.map((item, i) => (
+                <Table.Tr key={i}>
+                  <Table.Td style={{ wordBreak: 'break-all' }}>{item.url}</Table.Td>
+                  <Table.Td>{item.sheetUrl ? <a href={item.sheetUrl} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--mantine-color-indigo-filled)' }}>🔗 Mở Sheet</a> : 'Chưa có file'}</Table.Td>
+                  <Table.Td>{item.sheetName}</Table.Td>
+                </Table.Tr>
+              ))}
+            </Table.Tbody>
+          </Table>
+        )}
       </Card>
     </>
   );

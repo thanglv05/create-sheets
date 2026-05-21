@@ -4,6 +4,7 @@ const { loadConfig } = require("../config/settings");
 const {
   addJob,
   removeJob,
+  clearHistory,
   startQueue,
   getJobList,
   getJobDetail,
@@ -63,6 +64,16 @@ router.delete("/jobs/:id", (req, res) => {
     res.json({ success: true });
   } catch (err) {
     res.status(400).json({ error: err.message });
+  }
+});
+
+// DELETE /api/run/jobs/history — Xóa toàn bộ jobs đã done hoặc error
+router.delete("/history", (req, res) => {
+  try {
+    const count = clearHistory();
+    res.json({ success: true, cleared: count });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
