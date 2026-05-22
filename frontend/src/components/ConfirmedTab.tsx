@@ -12,7 +12,15 @@ export default function ConfirmedTab() {
     setLoading(true);
     try {
       const res = await axios.get('/api/tools/confirmed-list');
-      setList(res.data.results || []);
+      const results = res.data.results || [];
+      setList(results);
+      if (results.length > 0) {
+        notifications.show({
+          title: 'Khách chốt mới 🎯',
+          message: `Đã tìm thấy ${results.length} khách hàng ở trạng thái chốt đơn!`,
+          color: 'teal',
+        });
+      }
     } catch (e) {
       console.error(e);
     } finally {

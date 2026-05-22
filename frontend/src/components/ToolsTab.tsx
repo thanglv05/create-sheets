@@ -80,7 +80,21 @@ export default function ToolsTab() {
     setLoading(true);
     try {
       const res = await axios.post('/api/tools/customer-confirmed', { sheetName: ccSheetName });
-      setCcResults(res.data.results || []);
+      const results = res.data.results || [];
+      setCcResults(results);
+      if (results.length > 0) {
+        notifications.show({
+          title: 'Khách chốt mới 🎯',
+          message: `Đã quét và tìm thấy ${results.length} khách hàng ở trạng thái chốt đơn!`,
+          color: 'teal',
+        });
+      } else {
+        notifications.show({
+          title: 'Kết quả',
+          message: 'Không tìm thấy khách hàng nào ở trạng thái chốt đơn.',
+          color: 'blue',
+        });
+      }
     } catch (e: any) {
       notifications.show({ title: 'Lỗi', message: e.response?.data?.error || e.message, color: 'red' });
     } finally {

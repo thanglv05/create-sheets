@@ -9,8 +9,8 @@ import type { Metadata } from 'next';
 const inter = Inter({ subsets: ['latin', 'vietnamese'] });
 
 export const metadata: Metadata = {
-  title: 'Likepion Automation',
-  description: 'Likepion Google Sheets Automation System',
+  title: 'Auto Sheet Automation',
+  description: 'Auto Sheet Google Sheets Automation System',
 };
 
 const theme = createTheme({
@@ -27,7 +27,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body>
         <MantineProvider defaultColorScheme="dark" theme={theme}>
-          <Notifications position="top-right" zIndex={1000} />
+          <Notifications position="bottom-right" zIndex={1000} />
           {children}
         </MantineProvider>
       </body>

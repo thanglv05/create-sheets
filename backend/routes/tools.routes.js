@@ -80,7 +80,7 @@ router.post("/push-data-groups", async (req, res) => {
       services
     };
 
-    const job = addJob(jobConfig, `Push Data (${groups.length} nhóm)`);
+    const job = await addJob(jobConfig, `Push Data (${groups.length} nhóm)`);
     
     // Bắt đầu chạy queue
     await startQueue();

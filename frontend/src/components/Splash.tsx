@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import Logo from './Logo';
 
 export default function Splash() {
   const [show, setShow] = useState(true);
@@ -33,7 +34,7 @@ export default function Splash() {
             animate={{ scale: 1, opacity: 1 }}
             transition={{ duration: 0.5, ease: 'easeOut' }}
           >
-            <img src="/logo.svg" alt="Likepion Logo" style={{ width: 80, height: 80 }} />
+            <Logo size={80} />
           </motion.div>
           
           <motion.h1
@@ -49,7 +50,7 @@ export default function Splash() {
               WebkitTextFillColor: 'transparent'
             }}
           >
-            Likepion
+            Auto Sheet
           </motion.h1>
 
           <motion.p

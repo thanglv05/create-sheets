@@ -2,9 +2,9 @@
 // Mọi cấu hình mặc định đều ở đây
 // Có thể override bằng .env hoặc qua UI (lưu vào config.json)
 
-require("dotenv").config();
-const fs = require("fs");
 const path = require("path");
+require("dotenv").config({ path: path.join(__dirname, "../../.env") });
+const fs = require("fs");
 
 const CONFIG_FILE = path.join(__dirname, "../../config.json");
 

@@ -1,117 +1,41 @@
 /**
- * database.js — SQLite persistence layer
- * Dùng better-sqlite3 (synchronous API, phù hợp với Node.js single-thread)
- * File DB lưu tại: backend/data/jobs.db
+ * database.js — MongoDB Atlas persistence layer
+ * Sử dụng official mongodb driver bất đồng bộ
  */
 
-const Database = require("better-sqlite3");
-const path = require("path");
-const fs = require("fs");
+const { MongoClient } = require("mongodb");
 
-// Đảm bảo thư mục data tồn tại
-const DATA_DIR = path.join(__dirname, "../../data");
-if (!fs.existsSync(DATA_DIR)) {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
+let client = null;
+let db = null;
+
+async function connectDB() {
+  const uri = process.env.MONGODB_URI;
+  if (!uri) {
+    throw new Error("Biến môi trường MONGODB_URI bị thiếu!");
+  }
+
+  if (uri.includes("<db_password>")) {
+    console.warn("\n⚠️  CẢNH BÁO: MONGODB_URI chứa placeholder '<db_password>'.");
+    console.warn("Vui lòng thay thế '<db_password>' bằng mật khẩu cơ sở dữ liệu thực của bạn trong file .env!\n");
+  }
+
+  client = new MongoClient(uri);
+  await client.connect();
+  db = client.db(); // Sử dụng database mặc định trong connection string
+  console.log(`[DB] Đã kết nối thành công tới MongoDB Atlas: database "${db.databaseName}"`);
+
+  // Tạo index nâng cao hiệu năng và đảm bảo tính duy nhất
+  await db.collection("jobs").createIndex({ id: 1 }, { unique: true });
+  await db.collection("jobs").createIndex({ status: 1 });
+  await db.collection("jobs").createIndex({ createdAt: -1 });
+  await db.collection("job_logs").createIndex({ jobId: 1 });
 }
 
-const DB_PATH = path.join(DATA_DIR, "jobs.db");
-const db = new Database(DB_PATH);
-
-// ─── Tối ưu hiệu suất SQLite ──────────────────────────────────────────────────
-db.pragma("journal_mode = WAL");   // Write-Ahead Logging: đọc/ghi song song
-db.pragma("synchronous = NORMAL"); // Cân bằng giữa tốc độ và an toàn
-
-// ─── Tạo bảng nếu chưa có ────────────────────────────────────────────────────
-db.exec(`
-  CREATE TABLE IF NOT EXISTS jobs (
-    id          TEXT PRIMARY KEY,
-    name        TEXT NOT NULL,
-    status      TEXT NOT NULL DEFAULT 'pending',
-    config      TEXT NOT NULL,       -- JSON string
-    created_at  TEXT NOT NULL,
-    started_at  TEXT,
-    completed_at TEXT,
-    progress    TEXT DEFAULT '{"current":0,"total":0}',  -- JSON string
-    results     TEXT DEFAULT '[]',   -- JSON string
-    error       TEXT
-  );
-
-  CREATE TABLE IF NOT EXISTS job_logs (
-    id        INTEGER PRIMARY KEY AUTOINCREMENT,
-    job_id    TEXT NOT NULL,
-    level     TEXT,
-    message   TEXT,
-    ts        TEXT,
-    FOREIGN KEY (job_id) REFERENCES jobs(id) ON DELETE CASCADE
-  );
-
-  CREATE INDEX IF NOT EXISTS idx_jobs_status     ON jobs(status);
-  CREATE INDEX IF NOT EXISTS idx_jobs_created    ON jobs(created_at DESC);
-  CREATE INDEX IF NOT EXISTS idx_logs_job_id     ON job_logs(job_id);
-`);
-
-console.log(`[DB] SQLite initialized at: ${DB_PATH}`);
-
-// ─── Prepared Statements (compile 1 lần, chạy nhiều lần — nhanh hơn) ─────────
-const stmts = {
-  insertJob: db.prepare(`
-    INSERT INTO jobs (id, name, status, config, created_at, started_at, completed_at, progress, results, error)
-    VALUES (@id, @name, @status, @config, @created_at, @started_at, @completed_at, @progress, @results, @error)
-  `),
-
-  updateJobStatus: db.prepare(`
-    UPDATE jobs SET status = @status, started_at = @started_at, completed_at = @completed_at, error = @error
-    WHERE id = @id
-  `),
-
-  updateJobProgress: db.prepare(`
-    UPDATE jobs SET progress = @progress WHERE id = @id
-  `),
-
-  updateJobResults: db.prepare(`
-    UPDATE jobs SET results = @results, status = @status, completed_at = @completed_at, error = @error
-    WHERE id = @id
-  `),
-
-  deleteJob: db.prepare(`DELETE FROM jobs WHERE id = ?`),
-
-  getJobById: db.prepare(`SELECT * FROM jobs WHERE id = ?`),
-
-  getAllJobs: db.prepare(`SELECT * FROM jobs ORDER BY created_at DESC`),
-
-  getPendingJobs: db.prepare(`SELECT * FROM jobs WHERE status = 'pending' ORDER BY created_at ASC`),
-
-  insertLog: db.prepare(`
-    INSERT INTO job_logs (job_id, level, message, ts) VALUES (?, ?, ?, ?)
-  `),
-
-  getLogsByJobId: db.prepare(`
-    SELECT level, message, ts FROM job_logs WHERE job_id = ? ORDER BY id ASC
-  `),
-
-  deleteLogsByJobId: db.prepare(`DELETE FROM job_logs WHERE job_id = ?`),
-};
-
-// ─── Helper: parse JSON an toàn ───────────────────────────────────────────────
-function parseJSON(str, fallback) {
-  try { return JSON.parse(str); } catch { return fallback; }
-}
-
-// ─── Helper: convert DB row → job object (in-memory format) ──────────────────
-function rowToJob(row) {
-  return {
-    id:          row.id,
-    name:        row.name,
-    status:      row.status,
-    config:      parseJSON(row.config, {}),
-    createdAt:   row.created_at,
-    startedAt:   row.started_at,
-    completedAt: row.completed_at,
-    progress:    parseJSON(row.progress, { current: 0, total: 0 }),
-    results:     parseJSON(row.results, []),
-    error:       row.error,
-    logs:        [],  // logs load riêng khi cần (getJobDetail)
-  };
+function getDb() {
+  if (!db) {
+    throw new Error("Cơ sở dữ liệu chưa được khởi tạo. Vui lòng gọi connectDB() trước.");
+  }
+  return db;
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
@@ -119,99 +43,150 @@ function rowToJob(row) {
 /**
  * Lưu job mới vào DB
  */
-function dbInsertJob(job) {
-  stmts.insertJob.run({
+async function dbInsertJob(job) {
+  const database = getDb();
+  const doc = {
     id:           job.id,
     name:         job.name,
     status:       job.status,
-    config:       JSON.stringify(job.config),
-    created_at:   job.createdAt,
-    started_at:   job.startedAt,
-    completed_at: job.completedAt,
-    progress:     JSON.stringify(job.progress),
-    results:      JSON.stringify(job.results),
+    config:       job.config, // Lưu trực tiếp dạng Object
+    createdAt:   job.createdAt,
+    startedAt:   job.startedAt,
+    completedAt: job.completedAt,
+    progress:     job.progress, // Lưu trực tiếp dạng Object
+    results:      job.results,  // Lưu trực tiếp dạng Array
     error:        job.error,
-  });
+  };
+  await database.collection("jobs").insertOne(doc);
 }
 
 /**
- * Xóa job khỏi DB (cascade xóa cả logs)
+ * Xóa job khỏi DB (xóa cả logs liên quan)
  */
-function dbDeleteJob(jobId) {
-  stmts.deleteLogsByJobId.run(jobId);
-  stmts.deleteJob.run(jobId);
+async function dbDeleteJob(jobId) {
+  const database = getDb();
+  await Promise.all([
+    database.collection("job_logs").deleteMany({ jobId }),
+    database.collection("jobs").deleteOne({ id: jobId })
+  ]);
 }
 
 /**
  * Cập nhật status, startedAt, completedAt, error
  */
-function dbUpdateJobStatus(job) {
-  stmts.updateJobStatus.run({
-    id:           job.id,
-    status:       job.status,
-    started_at:   job.startedAt,
-    completed_at: job.completedAt,
-    error:        job.error,
-  });
+async function dbUpdateJobStatus(job) {
+  const database = getDb();
+  await database.collection("jobs").updateOne(
+    { id: job.id },
+    {
+      $set: {
+        status:      job.status,
+        startedAt:   job.startedAt,
+        completedAt: job.completedAt,
+        error:        job.error,
+      }
+    }
+  );
 }
 
 /**
  * Cập nhật tiến độ progress
  */
-function dbUpdateJobProgress(jobId, progress) {
-  stmts.updateJobProgress.run({ id: jobId, progress: JSON.stringify(progress) });
+async function dbUpdateJobProgress(jobId, progress) {
+  const database = getDb();
+  await database.collection("jobs").updateOne(
+    { id: jobId },
+    { $set: { progress } }
+  );
 }
 
 /**
  * Cập nhật kết quả khi job done/error
  */
-function dbUpdateJobResults(job) {
-  stmts.updateJobResults.run({
-    id:           job.id,
-    status:       job.status,
-    completed_at: job.completedAt,
-    error:        job.error,
-    results:      JSON.stringify(job.results || []),
-  });
+async function dbUpdateJobResults(job) {
+  const database = getDb();
+  await database.collection("jobs").updateOne(
+    { id: job.id },
+    {
+      $set: {
+        status:       job.status,
+        completedAt:  job.completedAt,
+        error:        job.error,
+        results:      job.results || [],
+      }
+    }
+  );
 }
 
 /**
  * Ghi 1 dòng log vào DB
  */
-function dbInsertLog(jobId, log) {
-  stmts.insertLog.run(jobId, log.level || "info", log.message || "", log.ts || new Date().toISOString());
+async function dbInsertLog(jobId, log) {
+  const database = getDb();
+  await database.collection("job_logs").insertOne({
+    jobId,
+    level:   log.level || "info",
+    message: log.message || "",
+    ts:      log.ts || new Date().toISOString(),
+  });
 }
 
 /**
- * Load tất cả logs của 1 job (dùng cho getJobDetail)
+ * Load tất cả logs của 1 job (sắp xếp tăng dần theo thời gian ghi)
  */
-function dbGetLogs(jobId) {
-  return stmts.getLogsByJobId.all(jobId);
+async function dbGetLogs(jobId) {
+  const database = getDb();
+  const docs = await database.collection("job_logs")
+    .find({ jobId })
+    .sort({ _id: 1 })
+    .toArray();
+  return docs.map(doc => ({
+    level:   doc.level,
+    message: doc.message,
+    ts:      doc.ts,
+  }));
 }
 
 /**
  * Load tất cả jobs từ DB vào memory khi server start
  * Jobs đang ở trạng thái "running" khi server crash → reset về "error"
  */
-function dbLoadAllJobs() {
-  const rows = stmts.getAllJobs.all();
-  const jobs = rows.map(rowToJob);
+async function dbLoadAllJobs() {
+  const database = getDb();
+  const docs = await database.collection("jobs")
+    .find()
+    .sort({ createdAt: -1 })
+    .toArray();
 
-  // Jobs bị crash giữa chừng → đánh dấu lỗi
-  jobs.forEach((job) => {
+  const jobs = docs.map(doc => ({
+    id:          doc.id,
+    name:        doc.name,
+    status:      doc.status,
+    config:      doc.config || {},
+    createdAt:   doc.createdAt,
+    startedAt:   doc.startedAt,
+    completedAt: doc.completedAt,
+    progress:    doc.progress || { current: 0, total: 0 },
+    results:     doc.results || [],
+    error:       doc.error,
+    logs:        [], // Sẽ được tải bất đồng bộ khi cần detail
+  }));
+
+  // Đánh dấu lỗi cho các job bị treo khi server restart
+  for (const job of jobs) {
     if (job.status === "running") {
       job.status = "error";
       job.error = "Server khởi động lại trong khi job đang chạy";
       job.completedAt = new Date().toISOString();
-      dbUpdateJobStatus(job);
+      await dbUpdateJobStatus(job);
     }
-  });
+  }
 
   return jobs;
 }
 
 module.exports = {
-  db,
+  connectDB,
   dbInsertJob,
   dbDeleteJob,
   dbUpdateJobStatus,

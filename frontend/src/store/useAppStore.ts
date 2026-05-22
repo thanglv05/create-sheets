@@ -1,6 +1,15 @@
 import { create } from 'zustand';
 import axios from 'axios';
 
+export interface AppNotification {
+  id: string;
+  title: string;
+  message: string;
+  color: string;
+  timestamp: string;
+  read: boolean;
+}
+
 interface AppState {
   jobs: any[];
   config: any;
@@ -11,6 +20,8 @@ interface AppState {
   authStatus: { authed: boolean; hasCredentials: boolean; message: string; };
   sheetNames: string[];
   driveFiles: { id: string; name: string }[];
+  notificationsList: AppNotification[];
+  unreadNotificationsCount: number;
   fetchJobs: () => Promise<void>;
   fetchConfig: () => Promise<void>;
   fetchSelectors: (sourceSheetId?: string) => Promise<void>;
@@ -20,6 +31,9 @@ interface AppState {
   patchJobProgress: (jobId: string, current: number, total: number) => void;
   patchJobLog: (jobId: string, log: any) => void;
   patchJobsFromList: (updatedJobs: any[]) => void;
+  addAppNotification: (notif: { title: string; message: string; color: string }) => void;
+  markAllNotificationsAsRead: () => void;
+  clearNotifications: () => void;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -32,6 +46,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   authStatus: { authed: false, hasCredentials: false, message: 'Đang kết nối...' },
   sheetNames: [],
   driveFiles: [],
+  notificationsList: [],
+  unreadNotificationsCount: 0,
 
   fetchJobs: async () => {
     try {
@@ -120,5 +136,31 @@ export const useAppStore = create<AppState>((set, get) => ({
       isQueueRunning: updatedJobs.some((j: any) => j.status === 'running'),
       currentJobId: updatedJobs.find((j: any) => j.status === 'running')?.id || null,
     };
+  }),
+
+  addAppNotification: (notif) => set((state) => {
+    const newNotif: AppNotification = {
+      id: Math.random().toString(36).substring(7),
+      title: notif.title,
+      message: notif.message,
+      color: notif.color,
+      timestamp: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+      read: false
+    };
+    const newList = [newNotif, ...state.notificationsList].slice(0, 100);
+    return {
+      notificationsList: newList,
+      unreadNotificationsCount: newList.filter(n => !n.read).length
+    };
+  }),
+
+  markAllNotificationsAsRead: () => set((state) => ({
+    notificationsList: state.notificationsList.map(n => ({ ...n, read: true })),
+    unreadNotificationsCount: 0
+  })),
+
+  clearNotifications: () => set({
+    notificationsList: [],
+    unreadNotificationsCount: 0
   }),
 }));

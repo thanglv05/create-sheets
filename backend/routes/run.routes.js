@@ -23,9 +23,9 @@ router.get("/jobs", (req, res) => {
 });
 
 // GET /api/run/jobs/:id
-router.get("/jobs/:id", (req, res) => {
+router.get("/jobs/:id", async (req, res) => {
   try {
-    const job = getJobDetail(req.params.id);
+    const job = await getJobDetail(req.params.id);
     res.json(job);
   } catch (err) {
     res.status(404).json({ error: err.message });
@@ -33,7 +33,7 @@ router.get("/jobs/:id", (req, res) => {
 });
 
 // POST /api/run/jobs — Thêm job mới
-router.post("/jobs", (req, res) => {
+router.post("/jobs", async (req, res) => {
   try {
     const globalConfig = loadConfig();
     const { sheetName, name, templateId, folderId, sourceSheetId } = req.body;
@@ -50,7 +50,7 @@ router.post("/jobs", (req, res) => {
       nameMap: globalConfig.nameMap,
     };
 
-    const job = addJob(jobConfig, name || sheetName);
+    const job = await addJob(jobConfig, name || sheetName);
     res.json({ success: true, job });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -58,9 +58,9 @@ router.post("/jobs", (req, res) => {
 });
 
 // DELETE /api/run/jobs/:id
-router.delete("/jobs/:id", (req, res) => {
+router.delete("/jobs/:id", async (req, res) => {
   try {
-    removeJob(req.params.id);
+    await removeJob(req.params.id);
     res.json({ success: true });
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -68,9 +68,9 @@ router.delete("/jobs/:id", (req, res) => {
 });
 
 // DELETE /api/run/jobs/history — Xóa toàn bộ jobs đã done hoặc error
-router.delete("/history", (req, res) => {
+router.delete("/history", async (req, res) => {
   try {
-    const count = clearHistory();
+    const count = await clearHistory();
     res.json({ success: true, cleared: count });
   } catch (err) {
     res.status(500).json({ error: err.message });

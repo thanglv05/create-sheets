@@ -1,5 +1,5 @@
 'use client';
-import { AppShell, Burger, Group, NavLink, Badge, Text, Button, Indicator, ActionIcon, useMantineColorScheme } from '@mantine/core';
+import { AppShell, Burger, Group, NavLink, Badge, Text, Button, Indicator, ActionIcon, useMantineColorScheme, UnstyledButton, Popover, ScrollArea } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { 
   IconLayoutDashboard, 
@@ -11,11 +11,14 @@ import {
   IconSun, 
   IconMoon, 
   IconPlayerPlay,
-  IconTable
+  IconTable,
+  IconBell,
+  IconTrash
 } from '@tabler/icons-react';
 import { useState, useEffect, Suspense } from 'react';
 import { useAppStore } from '@/store/useAppStore';
 import { useSearchParams, useRouter } from 'next/navigation';
+import axios from 'axios';
 
 import DashboardTab from '@/components/DashboardTab';
 import JobsTab from '@/components/JobsTab';
@@ -25,7 +28,7 @@ import ConfigTab from '@/components/ConfigTab';
 import LogsTab from '@/components/LogsTab';
 import SheetOverviewTab from '@/components/SheetOverviewTab';
 import Splash from '@/components/Splash';
-import CatMascot from '@/components/CatMascot';
+import Logo from '@/components/Logo';
 
 import { notifications } from '@mantine/notifications';
 
@@ -38,10 +41,27 @@ function AppContent() {
   
   const activeTab = searchParams.get('tab') || 'dashboard';
   const setActiveTab = (tab: string) => {
-    router.push(`/?tab=${tab}`);
+    if (tab === 'dashboard') {
+      router.push('/');
+    } else {
+      router.push(`/?tab=${tab}`);
+    }
   };
   
-  const { fetchJobs, fetchConfig, authStatus, pendingJobs, isQueueRunning, startQueue } = useAppStore();
+  const { 
+    fetchJobs, 
+    fetchConfig, 
+    authStatus, 
+    pendingJobs, 
+    isQueueRunning, 
+    startQueue,
+    notificationsList,
+    unreadNotificationsCount,
+    addAppNotification,
+    markAllNotificationsAsRead,
+    clearNotifications,
+    sheetNames
+  } = useAppStore();
 
   const handleStartQueue = async () => {
     if (isQueueRunning) {
@@ -77,7 +97,11 @@ function AppContent() {
   };
 
   useEffect(() => {
-    fetchJobs();
+    let isInitialized = false;
+
+    fetchJobs().then(() => {
+      isInitialized = true;
+    });
     fetchConfig();
 
     const evtSource = new EventSource('/api/run/stream');
@@ -88,6 +112,7 @@ function AppContent() {
         const data = JSON.parse(e.data);
         if (data.jobs) useAppStore.getState().patchJobsFromList(data.jobs);
         if (data.status) useAppStore.getState().setQueueStatus(data.status);
+        isInitialized = true;
       } catch {}
     });
 
@@ -95,6 +120,41 @@ function AppContent() {
     evtSource.addEventListener('jobs_updated', (e: MessageEvent) => {
       try {
         const jobs = JSON.parse(e.data);
+        const prevJobs = useAppStore.getState().jobs;
+        
+        if (isInitialized) {
+          jobs.forEach((newJob: any) => {
+            const oldJob = prevJobs.find((j: any) => j.id === newJob.id);
+            if (!oldJob) {
+              addAppNotification({
+                title: 'Job mới 📋',
+                message: `Đã thêm job mới cho Sheet: ${newJob.config.sheetName || 'Không tên'}`,
+                color: 'blue',
+              });
+            } else if (oldJob.status !== newJob.status) {
+              if (newJob.status === 'done') {
+                addAppNotification({
+                  title: 'Job hoàn thành ✅',
+                  message: `Job cho Sheet: ${newJob.config.sheetName || 'Không tên'} đã hoàn thành!`,
+                  color: 'teal',
+                });
+              } else if (newJob.status === 'error') {
+                addAppNotification({
+                  title: 'Job thất bại ❌',
+                  message: `Job cho Sheet: ${newJob.config.sheetName || 'Không tên'} gặp lỗi!`,
+                  color: 'red',
+                });
+              } else if (newJob.status === 'running') {
+                addAppNotification({
+                  title: 'Job đang chạy ⚡',
+                  message: `Đang bắt đầu chạy job cho Sheet: ${newJob.config.sheetName || 'Không tên'}...`,
+                  color: 'indigo',
+                });
+              }
+            }
+          });
+        }
+        
         useAppStore.getState().patchJobsFromList(jobs);
       } catch {}
     });
@@ -134,8 +194,72 @@ function AppContent() {
       } catch {}
     });
 
-    return () => evtSource.close();
+    return () => {
+      evtSource.close();
+    };
   }, [fetchJobs, fetchConfig]);
+
+  // Background checker for confirmed customers (khách chốt)
+  useEffect(() => {
+    if (!sheetNames || sheetNames.length === 0) return;
+
+    let lastConfirmedUrls: string[] = [];
+    let isFirstConfirmedCheck = true;
+
+    const checkConfirmedCustomers = async () => {
+      const activeSheetName = [...sheetNames].reverse().find((name: string) => name.startsWith('Tháng ')) || sheetNames[sheetNames.length - 1];
+      if (!activeSheetName) return;
+
+      try {
+        const res = await axios.get('/api/tools/confirmed-list', {
+          params: { sheetName: activeSheetName }
+        });
+        const results = res.data.results || [];
+        const currentUrls = results.map((item: any) => item.url);
+
+        const getUrlLabel = (url: string) => {
+          try {
+            return new URL(url).hostname.replace('www.', '');
+          } catch {
+            return url;
+          }
+        };
+
+        if (isFirstConfirmedCheck) {
+          isFirstConfirmedCheck = false;
+          lastConfirmedUrls = currentUrls;
+          if (results.length > 0) {
+            const names = results.map((item: any) => getUrlLabel(item.url)).join(', ');
+            addAppNotification({
+              title: 'Khách chốt mới 🎯',
+              message: `Đã tìm thấy ${results.length} khách hàng ở trạng thái chốt đơn: ${names}`,
+              color: 'teal',
+            });
+          }
+        } else {
+          const newConfirmed = results.filter((item: any) => !lastConfirmedUrls.includes(item.url));
+          if (newConfirmed.length > 0) {
+            const names = newConfirmed.map((item: any) => getUrlLabel(item.url)).join(', ');
+            addAppNotification({
+              title: 'Khách chốt mới chốt 🎯',
+              message: `Phát hiện thêm ${newConfirmed.length} khách hàng mới chốt đơn: ${names}`,
+              color: 'teal',
+            });
+          }
+          lastConfirmedUrls = currentUrls;
+        }
+      } catch (err) {
+        console.error('Failed to check confirmed customers', err);
+      }
+    };
+
+    checkConfirmedCustomers();
+    const confirmedInterval = setInterval(checkConfirmedCustomers, 60000); // Check every 60 seconds
+
+    return () => {
+      clearInterval(confirmedInterval);
+    };
+  }, [sheetNames, addAppNotification]);
 
   return (
     <>
@@ -159,12 +283,14 @@ function AppContent() {
           <Group h="100%" px="md" justify="space-between">
             <Group>
               <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" />
-              <Group gap="xs">
-                <img src="/logo.svg" alt="Likepion Logo" style={{ width: 28, height: 28 }} />
-                <Text size="xl" fw={800} variant="gradient" gradient={dark ? { from: 'indigo', to: 'cyan', deg: 90 } : { from: 'blue', to: 'indigo', deg: 90 }} style={{ letterSpacing: '-0.5px' }}>
-                  Likepion
-                </Text>
-              </Group>
+              <UnstyledButton onClick={() => setActiveTab('dashboard')} style={{ display: 'flex', alignItems: 'center' }}>
+                <Group gap="xs" style={{ cursor: 'pointer' }}>
+                  <Logo size={28} />
+                  <Text size="xl" fw={800} variant="gradient" gradient={dark ? { from: 'indigo', to: 'cyan', deg: 90 } : { from: 'blue', to: 'indigo', deg: 90 }} style={{ letterSpacing: '-0.5px' }}>
+                    Auto Sheet
+                  </Text>
+                </Group>
+              </UnstyledButton>
             </Group>
             
             <Group>
@@ -176,6 +302,64 @@ function AppContent() {
               <ActionIcon onClick={() => toggleColorScheme()} variant="default" size="lg" aria-label="Toggle color scheme">
                 {dark ? <IconSun size={18} /> : <IconMoon size={18} />}
               </ActionIcon>
+
+              {/* Notification Bell Dropdown */}
+              <Popover position="bottom-end" withArrow shadow="md" width={340} zIndex={1100}>
+                <Popover.Target>
+                  <Indicator disabled={unreadNotificationsCount === 0} color="red" size={18} label={unreadNotificationsCount} offset={2} processing>
+                    <ActionIcon variant="default" size="lg" aria-label="Thông báo">
+                      <IconBell size={18} />
+                    </ActionIcon>
+                  </Indicator>
+                </Popover.Target>
+                <Popover.Dropdown p={0}>
+                  <Group justify="space-between" px="md" py="xs" style={{ borderBottom: dark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.08)' }}>
+                    <Text fw={600} size="sm">Thông báo ({unreadNotificationsCount})</Text>
+                    <Group gap="xs">
+                      {notificationsList.length > 0 && (
+                        <>
+                          <Button variant="subtle" size="xs" onClick={() => markAllNotificationsAsRead()} styles={{ root: { padding: '0 4px', height: '24px' } }}>
+                            Đọc tất cả
+                          </Button>
+                          <ActionIcon variant="subtle" color="red" size="sm" onClick={() => clearNotifications()}>
+                            <IconTrash size={14} />
+                          </ActionIcon>
+                        </>
+                      )}
+                    </Group>
+                  </Group>
+                  
+                  <ScrollArea h={notificationsList.length === 0 ? 80 : 300} type="hover">
+                    {notificationsList.length === 0 ? (
+                      <Text c="dimmed" size="xs" ta="center" py="xl">Không có thông báo nào</Text>
+                    ) : (
+                      notificationsList.map((notif) => (
+                        <div 
+                          key={notif.id} 
+                          style={{
+                            padding: '10px 16px',
+                            borderBottom: dark ? '1px solid rgba(255,255,255,0.05)' : '1px solid rgba(0,0,0,0.05)',
+                            backgroundColor: notif.read ? 'transparent' : (dark ? 'rgba(255, 255, 255, 0.02)' : 'rgba(0, 0, 0, 0.02)'),
+                            transition: 'background-color 0.2s'
+                          }}
+                        >
+                          <Group wrap="nowrap" justify="space-between" align="flex-start">
+                            <div style={{ flex: 1 }}>
+                              <Text size="xs" fw={700} c={notif.color === 'red' ? 'red' : notif.color === 'teal' ? 'teal' : notif.color === 'indigo' ? 'indigo' : 'blue'}>
+                                {notif.title}
+                              </Text>
+                              <Text size="xs" mt={2} style={{ wordBreak: 'break-word', lineHeight: 1.4 }}>
+                                {notif.message}
+                              </Text>
+                            </div>
+                            <Text size="10px" c="dimmed" style={{ whiteSpace: 'nowrap', marginLeft: 8 }}>{notif.timestamp}</Text>
+                          </Group>
+                        </div>
+                      ))
+                    )}
+                  </ScrollArea>
+                </Popover.Dropdown>
+              </Popover>
 
               <Button 
                 leftSection={<IconPlayerPlay size={16} />} 
@@ -216,8 +400,6 @@ function AppContent() {
           {activeTab === 'config' && <ConfigTab key="config" />}
           {activeTab === 'logs' && <LogsTab key="logs" />}
         </AppShell.Main>
-        
-        <CatMascot />
       </AppShell>
     </>
   );

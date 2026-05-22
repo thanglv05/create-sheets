@@ -24,23 +24,25 @@ const STATE = {
 const emitter = new EventEmitter();
 emitter.setMaxListeners(50);
 
-// ─── Khởi tạo: Load jobs từ DB khi module được require ───────────────────────
-(function init() {
+// ─── Khởi tạo: Load jobs từ DB (được gọi bất đồng bộ từ server.js) ────────────
+async function initJobQueue() {
   try {
-    STATE.jobs = dbLoadAllJobs();
-    console.log(`[JobQueue] Loaded ${STATE.jobs.length} jobs from DB`);
+    STATE.jobs = await dbLoadAllJobs();
+    console.log(`[JobQueue] Đã tải ${STATE.jobs.length} jobs từ MongoDB`);
   } catch (err) {
-    console.error("[JobQueue] Lỗi load DB:", err.message);
+    console.error("[JobQueue] Lỗi tải dữ liệu từ DB:", err.message);
     STATE.jobs = [];
   }
-})();
+}
 
 // ─── Debounce helper cho progress (tránh ghi DB quá nhiều) ───────────────────
 const progressTimers = new Map();
 function debouncedSaveProgress(jobId, progress, delay = 500) {
   if (progressTimers.has(jobId)) clearTimeout(progressTimers.get(jobId));
   progressTimers.set(jobId, setTimeout(() => {
-    dbUpdateJobProgress(jobId, progress);
+    dbUpdateJobProgress(jobId, progress).catch(err => {
+      console.error(`[JobQueue] Lỗi cập nhật tiến độ job ${jobId} vào DB:`, err.message);
+    });
     progressTimers.delete(jobId);
   }, delay));
 }
@@ -48,7 +50,7 @@ function debouncedSaveProgress(jobId, progress, delay = 500) {
 /**
  * Thêm job mới vào queue
  */
-function addJob(config, name) {
+async function addJob(config, name) {
   const job = {
     id: uuidv4(),
     name: name || config.sheetName || "Job",
@@ -64,7 +66,7 @@ function addJob(config, name) {
   };
 
   STATE.jobs.push(job);
-  dbInsertJob(job);                         // ← Persist ngay
+  await dbInsertJob(job);                         // ← Persist ngay vào MongoDB
   emitter.emit("jobs_updated", getJobList());
   return job;
 }
@@ -72,13 +74,13 @@ function addJob(config, name) {
 /**
  * Xóa job (chỉ khi pending hoặc done/error)
  */
-function removeJob(jobId) {
+async function removeJob(jobId) {
   const idx = STATE.jobs.findIndex((j) => j.id === jobId);
   if (idx === -1) throw new Error("Job không tồn tại");
   const job = STATE.jobs[idx];
   if (job.status === "running") throw new Error("Không thể xóa job đang chạy");
   STATE.jobs.splice(idx, 1);
-  dbDeleteJob(jobId);                       // ← Xóa khỏi DB
+  await dbDeleteJob(jobId);                       // ← Xóa khỏi MongoDB
   emitter.emit("jobs_updated", getJobList());
 }
 
@@ -94,7 +96,7 @@ function getJobList() {
     startedAt: j.startedAt,
     completedAt: j.completedAt,
     progress: j.progress,
-    resultsCount: j.results.length,
+    resultsCount: j.results ? j.results.length : 0,
     error: j.error,
   }));
 }
@@ -104,13 +106,13 @@ function getJobList() {
  * - Nếu job đang running → lấy logs từ memory (realtime)
  * - Nếu job done/error → lấy logs từ DB (persistent)
  */
-function getJobDetail(jobId) {
+async function getJobDetail(jobId) {
   const job = STATE.jobs.find((j) => j.id === jobId);
   if (!job) throw new Error("Job không tồn tại");
 
   // Với done/error: nếu logs trong memory đã bị clear, load từ DB
-  if ((job.status === "done" || job.status === "error") && job.logs.length === 0) {
-    job.logs = dbGetLogs(jobId);
+  if ((job.status === "done" || job.status === "error") && (!job.logs || job.logs.length === 0)) {
+    job.logs = await dbGetLogs(jobId);
   }
 
   return job;
@@ -147,14 +149,16 @@ async function _processQueue() {
     job.status = "running";
     job.startedAt = new Date().toISOString();
     job.logs = [];                           // Reset logs trong memory
-    dbUpdateJobStatus(job);                  // ← Persist status
+    await dbUpdateJobStatus(job);            // ← Persist status vào DB
     emitter.emit("jobs_updated", getJobList());
 
     const logger = new Logger({
       emit: (event, data) => {
         if (event === "log") {
           job.logs.push(data);
-          dbInsertLog(job.id, data);         // ← Persist từng dòng log
+          dbInsertLog(job.id, data).catch(err => {
+            console.error(`[JobQueue] Lỗi ghi log vào MongoDB cho job ${job.id}:`, err.message);
+          });                                // ← Persist từng dòng log bất đồng bộ
           emitter.emit("job_log", { jobId: job.id, ...data });
         }
       },
@@ -202,7 +206,7 @@ async function _processQueue() {
       logger.error(`Job thất bại: ${err.message}`);
     }
 
-    dbUpdateJobResults(job);                 // ← Persist kết quả cuối
+    await dbUpdateJobResults(job);           // ← Persist kết quả cuối vào DB
     emitter.emit("jobs_updated", getJobList());
   }
 }
@@ -223,12 +227,22 @@ function getQueueStatus() {
  * Xóa toàn bộ jobs đã done hoặc error khỏi memory và DB
  * @returns {number} số lượng jobs đã xóa
  */
-function clearHistory() {
+async function clearHistory() {
   const toRemove = STATE.jobs.filter((j) => j.status === "done" || j.status === "error");
-  toRemove.forEach((j) => dbDeleteJob(j.id));
+  await Promise.all(toRemove.map((j) => dbDeleteJob(j.id)));
   STATE.jobs = STATE.jobs.filter((j) => j.status !== "done" && j.status !== "error");
   emitter.emit("jobs_updated", getJobList());
   return toRemove.length;
 }
 
-module.exports = { addJob, removeJob, clearHistory, startQueue, getJobList, getJobDetail, getQueueStatus, emitter };
+module.exports = {
+  addJob,
+  removeJob,
+  clearHistory,
+  startQueue,
+  getJobList,
+  getJobDetail,
+  getQueueStatus,
+  emitter,
+  initJobQueue,
+};

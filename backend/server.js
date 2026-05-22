@@ -1,7 +1,7 @@
-require("dotenv").config();
+const path = require("path");
+require("dotenv").config({ path: path.join(__dirname, "../.env") });
 const express = require("express");
 const cors = require("cors");
-const path = require("path");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -27,9 +27,28 @@ app.get("*", (req, res) => {
 });
 
 // ===== START =====
-app.listen(PORT, () => {
-  console.log(`\n🚀 Server đang chạy tại: http://localhost:${PORT}`);
-  console.log(`📋 Dashboard: http://localhost:${PORT}\n`);
-});
+const { connectDB } = require("./db/database");
+const { initJobQueue } = require("./core/jobQueue");
+
+async function start() {
+  try {
+    // 1. Kết nối MongoDB
+    await connectDB();
+
+    // 2. Khởi tạo Job Queue
+    await initJobQueue();
+
+    // 3. Lắng nghe cổng
+    app.listen(PORT, () => {
+      console.log(`\n🚀 Server đang chạy tại: http://localhost:${PORT}`);
+      console.log(`📋 Dashboard: http://localhost:${PORT}\n`);
+    });
+  } catch (err) {
+    console.error("❌ Lỗi khởi động ứng dụng:", err.message);
+    process.exit(1);
+  }
+}
+
+start();
 
 module.exports = app;
