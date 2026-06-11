@@ -21,7 +21,7 @@ const DEFAULT_CONFIG = {
   },
   // Cấu hình cho pushData
   pushDataApiKey: process.env.PUSH_DATA_API_KEY || "46a5cc0181990549672bb6d70558393d",
-  pushDataApiBase: process.env.PUSH_DATA_API_BASE || "https://apikey-test.likepion.com/api/admin-download",
+  pushDataApiBase: process.env.PUSH_DATA_API_BASE || "https://api.likepion.com/api/admin-download",
 };
 
 function loadConfig() {

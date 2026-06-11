@@ -12,10 +12,10 @@ function groupRows(rows) {
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
-    const colH = row[0] || "";
-    const colI = row[1] || "";
-    const colJ = row[2] || "";
-    const colK = row[3] || "";
+    const colH = (row[0] || "").trim();
+    const colI = (row[1] || "").trim();
+    const colJ = (row[2] || "").trim();
+    const colK = (row[3] || "").trim();
 
     if (colH.startsWith("http")) {
       // Đã có link rồi → bỏ qua

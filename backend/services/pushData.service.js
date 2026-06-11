@@ -64,7 +64,17 @@ async function runPushData({ apiKey, apiBase, serviceToSheet, jobs, log = () => 
 }
 
 async function fetchExcel(apiKey, apiBase, service, id, log) {
-  const url = `${apiBase}/${service}/${id}`;
+  const API_SERVICE_MAP = {
+    "Podcast": "podcast",
+    "GG Stacking": "google-stacking",
+    "Share Social": "social",
+    "Blog 2.0": "blog20",
+    "Entity": "entity"
+  };
+
+  const apiService = API_SERVICE_MAP[service] || service.toLowerCase().replace(/\s+/g, "-");
+  const cleanApiBase = apiBase.trim().replace(/\/+$/, "");
+  const url = `${cleanApiBase}/${apiService}/${id}`;
   log("info", `  🌐 GET ${url}`);
 
   const res = await axios.get(url, {

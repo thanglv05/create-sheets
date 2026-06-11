@@ -1,5 +1,5 @@
 'use client';
-import { Card, Title, Text, Tabs, TextInput, Textarea, Button, Table, Group, SimpleGrid, ActionIcon, MultiSelect, SegmentedControl, Collapse } from '@mantine/core';
+import { Card, Title, Text, Tabs, TextInput, Textarea, Button, Table, Group, SimpleGrid, ActionIcon, MultiSelect, SegmentedControl, Collapse, Select } from '@mantine/core';
 import { IconUsers, IconLink, IconUpload, IconTag, IconRobot, IconSearch, IconPlus, IconTrash, IconSettings } from '@tabler/icons-react';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
@@ -14,7 +14,8 @@ const tabLabels: Record<string, string> = {
   'get-url': 'Tra link file',
   'push-data': 'Push data',
   'update-status': 'Cập nhật trạng thái',
-  'scrape-info': 'Tự động điền Info'
+  'scrape-info': 'Tự động điền Info',
+  'add-single-tab': 'Thêm Tab Đơn Lẻ'
 };
 
 export default function ToolsTab() {
@@ -28,6 +29,57 @@ export default function ToolsTab() {
 
   const { config } = useAppStore();
   const [pdRows, setPdRows] = useState<any[]>([{ sheetIdOrUrl: '', setId: '' }]);
+
+  const [astUrlsOrIds, setAstUrlsOrIds] = useState('');
+  const [astServiceNames, setAstServiceNames] = useState<string[]>([]);
+  const [astCount, setAstCount] = useState<number | string>('');
+  const [astResults, setAstResults] = useState<any[]>([]);
+
+  const handleApiAddSingleTab = async () => {
+    if (!astUrlsOrIds || astServiceNames.length === 0 || !astCount) {
+      notifications.show({ title: 'Cảnh báo', message: 'Vui lòng điền đầy đủ thông tin!', color: 'orange' });
+      return;
+    }
+    setLoading(true);
+    setAstResults([]);
+    try {
+      const res = await axios.post('/api/tools/add-single-tab', {
+        urlsOrIds: astUrlsOrIds,
+        serviceNames: astServiceNames,
+        count: astCount
+      });
+      const results = res.data.results || [];
+      setAstResults(results);
+
+      const successCount = results.filter((r: any) => r.status === 'success').length;
+      const existsCount = results.filter((r: any) => r.status === 'already_exists').length;
+      const errorCount = results.filter((r: any) => r.status === 'error').length;
+
+      if (errorCount > 0) {
+        notifications.show({
+          title: 'Hoàn tất với một số lỗi ⚠️',
+          message: `Đã xử lý xong: ${successCount} thành công, ${existsCount} đã tồn tại, ${errorCount} lỗi.`,
+          color: 'orange',
+          autoClose: 8000
+        });
+      } else {
+        notifications.show({
+          title: 'Thành công 🎯',
+          message: `Đã xử lý xong: ${successCount} thành công, ${existsCount} đã tồn tại.`,
+          color: 'teal',
+          autoClose: 5000
+        });
+      }
+    } catch (e: any) {
+      notifications.show({
+        title: 'Lỗi',
+        message: e.response?.data?.error || e.message,
+        color: 'red'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
   const [pdApiBase, setPdApiBase] = useState('');
   const [pdApiKey, setPdApiKey] = useState('');
   const [inputMode, setInputMode] = useState<'manual' | 'bulk'>('manual');
@@ -199,6 +251,7 @@ export default function ToolsTab() {
             <Tabs.Tab value="push-data" leftSection={<IconUpload size={16} />} style={{ fontWeight: 600 }}>Push data</Tabs.Tab>
             <Tabs.Tab value="update-status" leftSection={<IconTag size={16} />} style={{ fontWeight: 600 }}>Update trạng thái</Tabs.Tab>
             <Tabs.Tab value="scrape-info" leftSection={<IconRobot size={16} />} style={{ fontWeight: 600 }}>Tự động điền Info</Tabs.Tab>
+            <Tabs.Tab value="add-single-tab" leftSection={<IconPlus size={16} />} style={{ fontWeight: 600 }}>Thêm Tab Đơn Lẻ</Tabs.Tab>
           </Tabs.List>
         </Card>
 
@@ -468,6 +521,92 @@ export default function ToolsTab() {
                   ))}
                 </Table.Tbody>
               </Table>
+            )}
+          </Tabs.Panel>
+
+          <Tabs.Panel value="add-single-tab">
+            <Title order={3} mb="xs">Thêm Tab Dịch Vụ Đơn Lẻ (Hàng loạt)</Title>
+            <Text c="dimmed" size="sm" mb="xl">Thêm các tab dịch vụ mới từ template vào các file Google Sheets đã tạo (dựa theo URL website hoặc link Google Sheets).</Text>
+            
+            <Textarea
+              label="Danh sách Đường dẫn (URL website / Link Google Sheets / ID)"
+              description="Nhập mỗi đường dẫn trên một dòng"
+              required 
+              placeholder="Ví dụ:&#10;https://tuongphatda.vn/&#10;https://docs.google.com/spreadsheets/d/...&#10;019e2eba-bede-763d-9152-3c76ad000fee"
+              rows={6}
+              value={astUrlsOrIds}
+              onChange={e => setAstUrlsOrIds(e.target.value)}
+              mb="md"
+            />
+
+            <SimpleGrid cols={{ base: 1, sm: 2 }} mb="md" gap="md">
+              {config?.nameMap && (
+                <MultiSelect
+                  label="Chọn loại dịch vụ"
+                  placeholder="Chọn một hoặc nhiều dịch vụ..."
+                  required
+                  data={Object.keys(config.nameMap)}
+                  value={astServiceNames}
+                  onChange={setAstServiceNames}
+                  clearable
+                  searchable
+                />
+              )}
+              <TextInput
+                label="Số lượng (Ví dụ: 50, 100...)"
+                required
+                placeholder="VD: 50"
+                value={astCount}
+                onChange={e => setAstCount(e.target.value)}
+              />
+            </SimpleGrid>
+            
+            <Button leftSection={<IconPlus size={16} />} onClick={handleApiAddSingleTab} loading={loading} mb="xl">
+              Thêm Tab vào File
+            </Button>
+
+            {astResults.length > 0 && (
+              <Card withBorder radius="md" p="md">
+                <Text fw={600} size="sm" mb="md">Kết quả thực hiện ({astResults.length}):</Text>
+                <Table striped withTableBorder>
+                  <Table.Thead>
+                    <Table.Tr>
+                      <Table.Th>URL / ID</Table.Th>
+                      <Table.Th>Dịch vụ</Table.Th>
+                      <Table.Th>Trạng thái</Table.Th>
+                      <Table.Th>Kết quả / Liên kết</Table.Th>
+                    </Table.Tr>
+                  </Table.Thead>
+                  <Table.Tbody>
+                    {astResults.map((r, i) => (
+                      <Table.Tr key={i}>
+                        <Table.Td style={{ wordBreak: 'break-all' }}>{r.input}</Table.Td>
+                        <Table.Td>{r.serviceName}</Table.Td>
+                        <Table.Td>
+                          {r.status === 'success' && (
+                            <Text c="teal" fw={600} size="sm">Thành công</Text>
+                          )}
+                          {r.status === 'already_exists' && (
+                            <Text c="orange" fw={600} size="sm">Đã tồn tại</Text>
+                          )}
+                          {r.status === 'error' && (
+                            <Text c="red" fw={600} size="sm">Lỗi</Text>
+                          )}
+                        </Table.Td>
+                        <Table.Td>
+                          {r.status === 'error' ? (
+                            <Text c="dimmed" size="xs">{r.error}</Text>
+                          ) : (
+                            <a href={r.fileUrl} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--mantine-color-indigo-filled)', fontWeight: 600, fontSize: '14px' }}>
+                              🔗 Mở file ({r.sheetTitle})
+                            </a>
+                          )}
+                        </Table.Td>
+                      </Table.Tr>
+                    ))}
+                  </Table.Tbody>
+                </Table>
+              </Card>
             )}
           </Tabs.Panel>
         </Card>

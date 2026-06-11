@@ -350,4 +350,70 @@ router.get("/sheet-overview", async (req, res) => {
   }
 });
 
+// ===== POST /api/tools/add-single-tab =====
+router.post("/add-single-tab", async (req, res) => {
+  try {
+    const cfg = loadConfig();
+    const { urlOrId, urlsOrIds, serviceName, serviceNames, count, templateId, folderId } = req.body;
+
+    // Hỗ trợ cả single urlOrId hoặc danh sách urlsOrIds (dạng array hoặc chuỗi phân tách bằng dòng mới)
+    let targetInputs = [];
+    if (Array.isArray(urlsOrIds)) {
+      targetInputs = urlsOrIds;
+    } else if (urlsOrIds && typeof urlsOrIds === "string") {
+      targetInputs = urlsOrIds.split("\n").map(u => u.trim()).filter(u => u);
+    } else if (urlOrId) {
+      targetInputs = [urlOrId.trim()];
+    }
+
+    // Hỗ trợ cả single serviceName hoặc danh sách serviceNames (dạng array)
+    let targetServices = [];
+    if (Array.isArray(serviceNames)) {
+      targetServices = serviceNames;
+    } else if (serviceNames && typeof serviceNames === "string") {
+      targetServices = [serviceNames];
+    } else if (serviceName) {
+      targetServices = [serviceName];
+    }
+
+    if (targetInputs.length === 0 || targetServices.length === 0 || !count) {
+      return res.status(400).json({ error: "Danh sách URL/ID, loại dịch vụ và count là bắt buộc." });
+    }
+
+    const { addSingleTab } = require("../services/addTab.service");
+    const results = [];
+
+    for (const input of targetInputs) {
+      for (const service of targetServices) {
+        const result = { input, serviceName: service, status: "pending" };
+        try {
+          const astRes = await addSingleTab({
+            urlOrId: input,
+            serviceName: service,
+            count,
+            templateId: templateId || cfg.templateId,
+            folderId: folderId || cfg.folderId,
+            nameMap: cfg.nameMap,
+            log: (lvl, msg) => console.log(`[Tool-AST] [${lvl.toUpperCase()}] ${msg}`)
+          });
+          result.status = astRes.alreadyExists ? "already_exists" : "success";
+          result.sheetTitle = astRes.sheetTitle;
+          result.fileId = astRes.fileId;
+          result.fileUrl = astRes.fileUrl;
+        } catch (err) {
+          console.error(`[AddSingleTab] Lỗi khi xử lý ${input} - ${service}:`, err.message);
+          result.status = "error";
+          result.error = err.message;
+        }
+        results.push(result);
+      }
+    }
+
+    res.json({ success: true, results });
+  } catch (err) {
+    console.error("[AddSingleTab]", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

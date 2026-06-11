@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  sheets-automation-be:
+    build:
+      context: .
+      dockerfile: ./backend/Dockerfile
+    image: thanglv1211/sheetautomation-be:tagname
+    container_name: sheets-automation-be
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    volumes:
+      # Mount Google API credentials and token
+      - ./credentials.json:/app/credentials.json:ro
+      - ./token.json:/app/token.json:ro
+      # Mount config.json to persist settings configured through the UI
+      - ./config.json:/app/config.json:rw
+    networks:
+      - default
+      - npm_network
+    restart: always
+
+  sheets-automation-fe:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    image: thanglv1211/sheetautomation-fe:tagname
+    container_name: sheets-automation-fe
+    ports:
+      - "80:80"
+    networks:
+      - default
+      - npm_network
+    restart: always
+
+networks:
+  npm_network:
+    external: true
