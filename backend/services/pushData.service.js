@@ -30,8 +30,15 @@ async function runPushData({ apiKey, apiBase, serviceToSheet, jobs, log = () => 
       // 1. Gọi API lấy Excel
       const rows = await fetchExcel(apiKey, apiBase, job.service, job.id, log);
 
-      // 2. Map service → tên sheet
-      const sheetName = serviceToSheet[job.service];
+      // 2. Map service → tên sheet (so sánh case/space/hyphen-insensitive)
+      let sheetName = null;
+      const normalizedJobService = job.service.toLowerCase().replace(/[^a-z0-9]/g, "");
+      for (const [key, value] of Object.entries(serviceToSheet)) {
+        if (key.toLowerCase().replace(/[^a-z0-9]/g, "") === normalizedJobService) {
+          sheetName = value;
+          break;
+        }
+      }
       if (!sheetName) {
         log("warn", `⚠️ Không có mapping cho service: "${job.service}"`);
         failCount++;
@@ -69,10 +76,21 @@ async function fetchExcel(apiKey, apiBase, service, id, log) {
     "GG Stacking": "google-stacking",
     "Share Social": "social",
     "Blog 2.0": "blog20",
-    "Entity": "entity"
+    "Entity": "entity",
+    "Link Cloud": "link-cloud"
   };
 
-  const apiService = API_SERVICE_MAP[service] || service.toLowerCase().replace(/\s+/g, "-");
+  let apiService = null;
+  const normalizedService = service.toLowerCase().replace(/[^a-z0-9]/g, "");
+  for (const [key, value] of Object.entries(API_SERVICE_MAP)) {
+    if (key.toLowerCase().replace(/[^a-z0-9]/g, "") === normalizedService) {
+      apiService = value;
+      break;
+    }
+  }
+  if (!apiService) {
+    apiService = service.toLowerCase().replace(/\s+/g, "-");
+  }
   const cleanApiBase = apiBase.trim().replace(/\/+$/, "");
   const url = `${cleanApiBase}/${apiService}/${id}`;
   log("info", `  🌐 GET ${url}`);

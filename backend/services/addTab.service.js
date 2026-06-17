@@ -24,8 +24,15 @@ async function addSingleTab({ urlOrId, serviceName, count, templateId, folderId,
   const targetSpreadsheetId = await resolveSpreadsheetId(urlOrId, folderId);
   log("info", `  -> Khớp Spreadsheet ID: ${targetSpreadsheetId}`);
 
-  // 1. Kiểm tra ánh xạ tên tab
-  const mappedName = nameMap[serviceName];
+  // 1. Kiểm tra ánh xạ tên tab (so sánh case/space/hyphen-insensitive)
+  let mappedName = null;
+  const normalizedService = serviceName.toLowerCase().replace(/[^a-z0-9]/g, "");
+  for (const [key, value] of Object.entries(nameMap)) {
+    if (key.toLowerCase().replace(/[^a-z0-9]/g, "") === normalizedService) {
+      mappedName = value;
+      break;
+    }
+  }
   if (!mappedName) {
     throw new Error(`Không tìm thấy ánh xạ tên tab cho dịch vụ: "${serviceName}"`);
   }

@@ -18,6 +18,7 @@ const DEFAULT_CONFIG = {
     "Share Social": "SHARE SOCIAL",
     "Blog 2.0": "BLOG 2.0",
     Entity: "ENTITY",
+    "Link Cloud": "LINK CLOUD",
   },
   // Cấu hình cho pushData
   pushDataApiKey: process.env.PUSH_DATA_API_KEY || "46a5cc0181990549672bb6d70558393d",
@@ -31,7 +32,8 @@ function loadConfig() {
   if (process.env.APP_CONFIG) {
     try {
       const envConfig = JSON.parse(process.env.APP_CONFIG);
-      config = { ...config, ...envConfig };
+      const nameMap = { ...config.nameMap, ...(envConfig.nameMap || {}) };
+      config = { ...config, ...envConfig, nameMap };
     } catch (err) {
       console.error("Lỗi parse APP_CONFIG từ env:", err.message);
     }
@@ -41,7 +43,8 @@ function loadConfig() {
   if (fs.existsSync(CONFIG_FILE)) {
     try {
       const saved = JSON.parse(fs.readFileSync(CONFIG_FILE, "utf8"));
-      config = { ...config, ...saved };
+      const nameMap = { ...config.nameMap, ...(saved.nameMap || {}) };
+      config = { ...config, ...saved, nameMap };
     } catch (err) {
       console.error("Lỗi đọc config.json:", err.message);
     }

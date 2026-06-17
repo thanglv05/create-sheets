@@ -73,17 +73,30 @@ async function processGroup(item, jobConfig, log) {
     const type = (s.name || "").trim();
     if (!type) continue;
 
-    const mappedName = nameMap[type] || type.toUpperCase();
-    const newTitle = `${mappedName} - ${s.count}`;
+    // Robust nameMap lookup using character-normalized keys
+    let mappedName = null;
+    const normalizedType = type.toLowerCase().replace(/[^a-z0-9]/g, "");
+    for (const [key, value] of Object.entries(nameMap)) {
+      if (key.toLowerCase().replace(/[^a-z0-9]/g, "") === normalizedType) {
+        mappedName = value;
+        break;
+      }
+    }
+    if (!mappedName) {
+      mappedName = type.toUpperCase();
+    }
 
-    if (sheetMap[mappedName] !== undefined) {
+    const newTitle = `${mappedName} - ${s.count}`;
+    const sheetMapKey = mappedName.trim().toUpperCase();
+
+    if (sheetMap[sheetMapKey] !== undefined) {
       requests.push({
         updateSheetProperties: {
-          properties: { sheetId: sheetMap[mappedName], title: newTitle },
+          properties: { sheetId: sheetMap[sheetMapKey], title: newTitle },
           fields: "title",
         },
       });
-      delete sheetMap[mappedName];
+      delete sheetMap[sheetMapKey];
     } else {
       log("warn", `⚠️ Không có sheet: ${mappedName}`);
     }
@@ -266,9 +279,10 @@ async function runPushDataManual(job, log, onProgress) {
       // Khớp tab với các service trong nameMap
       let matchedCount = 0;
       for (const [serviceName, tabPrefix] of Object.entries(nameMap)) {
-        // Lọc theo danh sách dịch vụ được chỉ định nếu có
-        if (services && services.length > 0 && !services.includes(serviceName)) {
-          continue;
+        // Lọc theo danh sách dịch vụ được chỉ định nếu có (so sánh case-insensitive, không ký tự đặc biệt)
+        if (services && services.length > 0) {
+          const isSelected = services.some(s => s.toLowerCase().replace(/[^a-z0-9]/g, "") === serviceName.toLowerCase().replace(/[^a-z0-9]/g, ""));
+          if (!isSelected) continue;
         }
 
         const hasTab = sheetTitles.some(title => 
