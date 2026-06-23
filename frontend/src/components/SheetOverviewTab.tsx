@@ -156,42 +156,44 @@ export default function SheetOverviewTab() {
 
   return (
     <Stack gap="lg">
-      {/* ── Control Header Panel ── */}
-      <Card withBorder radius="md" p="lg">
-        <Group justify="space-between" align="center" mb="lg">
-          <Group gap="sm">
-            <ThemeIcon color="indigo" variant="light" size={40} radius="md">
-              <IconChartBar size="1.6rem" stroke={1.5} />
-            </ThemeIcon>
-            <div>
-              <Title order={3}>Tổng quan dữ liệu Sheet</Title>
-              <Text size="xs" c="dimmed">Xem, tìm kiếm, lọc và xuất danh sách các nhóm URL được đồng bộ từ Google Sheets</Text>
-            </div>
-          </Group>
-          <Group gap="xs">
-            {data && (
-              <Button 
-                variant="subtle" 
-                color="gray" 
-                leftSection={<IconCopy size={16} />}
-                onClick={copyUrls}
-                disabled={filteredGroups.length === 0}
-              >
-                Sao chép URL
-              </Button>
-            )}
-            <Button
-              variant="light"
-              leftSection={loading ? <Loader size={14} /> : <IconRefresh size={16} />}
-              onClick={() => fetchData()}
-              loading={loading}
-              disabled={!selectedSheet}
-            >
-              Làm mới
-            </Button>
-          </Group>
+      <Group justify="space-between" align="center">
+        <Group gap="sm">
+          <ThemeIcon color="indigo" variant="light" size={40} radius="md">
+            <IconChartBar size="1.6rem" stroke={1.5} />
+          </ThemeIcon>
+          <div>
+            <Title order={2}>Tổng quan dữ liệu Sheet</Title>
+            <Text size="xs" c="dimmed">Xem, tìm kiếm, lọc và xuất danh sách các nhóm URL được đồng bộ từ Google Sheets</Text>
+          </div>
         </Group>
+        <Group gap="xs">
+          {data && (
+            <Button 
+              variant="light" 
+              color="indigo" 
+              radius="md"
+              leftSection={<IconCopy size={16} />}
+              onClick={copyUrls}
+              disabled={filteredGroups.length === 0}
+            >
+              Sao chép URL
+            </Button>
+          )}
+          <Button
+            variant="default"
+            radius="md"
+            leftSection={loading ? <Loader size={14} /> : <IconRefresh size={16} />}
+            onClick={() => fetchData()}
+            loading={loading}
+            disabled={!selectedSheet}
+          >
+            Làm mới
+          </Button>
+        </Group>
+      </Group>
 
+      {/* ── Control Panel ── */}
+      <Paper shadow="sm" p="md" radius="md" withBorder>
         <Group gap="md" align="flex-end">
           <Box style={{ flex: 1 }} maw={320}>
             <Select
@@ -205,12 +207,12 @@ export default function SheetOverviewTab() {
             />
           </Box>
           {!data && !loading && (
-            <Button onClick={() => fetchData()} disabled={!selectedSheet} radius="md">
+            <Button variant="filled" color="indigo" radius="md" onClick={() => fetchData()} disabled={!selectedSheet}>
               Xem dữ liệu
             </Button>
           )}
         </Group>
-      </Card>
+      </Paper>
 
       {/* ── Loader Skeletons (To prevent layout jumping) ── */}
       {loading && (
@@ -222,16 +224,16 @@ export default function SheetOverviewTab() {
             <Skeleton height={94} radius="md" />
           </SimpleGrid>
 
-          <Card withBorder radius="md" p="md">
+          <Paper shadow="sm" p="md" radius="md" withBorder>
             <Skeleton height={16} width={200} mb="sm" radius="md" />
             <Group gap="xs">
               <Skeleton height={28} width={100} radius="md" />
               <Skeleton height={28} width={120} radius="md" />
               <Skeleton height={28} width={80} radius="md" />
             </Group>
-          </Card>
+          </Paper>
 
-          <Card withBorder radius="md" p="lg">
+          <Paper shadow="sm" p="md" radius="md" withBorder>
             <Group justify="space-between" mb="lg">
               <Skeleton height={24} width={180} radius="md" />
               <Skeleton height={36} width={280} radius="md" />
@@ -243,7 +245,7 @@ export default function SheetOverviewTab() {
               <Skeleton height={40} radius="md" />
               <Skeleton height={40} radius="md" />
             </Stack>
-          </Card>
+          </Paper>
         </>
       )}
 
@@ -286,7 +288,7 @@ export default function SheetOverviewTab() {
 
           {/* Status Filter Badges Panel */}
           {stats.byStatus && Object.keys(stats.byStatus).length > 0 && (
-            <Card withBorder radius="md" p="md">
+            <Paper shadow="sm" p="md" radius="md" withBorder>
               <Text size="xs" fw={700} c="dimmed" tt="uppercase" mb="xs">
                 Lọc nhanh theo Trạng thái
               </Text>
@@ -312,8 +314,7 @@ export default function SheetOverviewTab() {
                   <Button
                     variant="subtle"
                     color="gray"
-                    size="xs"
-                    radius="md"
+                    size="md"
                     onClick={() => setStatusFilter('all')}
                     leftSection={<IconX size={14} />}
                   >
@@ -321,12 +322,12 @@ export default function SheetOverviewTab() {
                   </Button>
                 )}
               </Group>
-            </Card>
+            </Paper>
           )}
 
           {/* Data Table Panel */}
           {data.groups && (
-            <Card withBorder radius="md" p="xl">
+            <Paper shadow="sm" p="md" radius="md" withBorder>
               {/* Header inside table card */}
               <Group justify="space-between" align="center" mb="md" wrap="wrap">
                 <Group gap="xs">
@@ -486,14 +487,14 @@ export default function SheetOverviewTab() {
                   </Table>
                 </ScrollArea>
               )}
-            </Card>
+            </Paper>
           )}
         </>
       )}
 
       {/* ── Empty Welcome State ── */}
       {!data && !loading && (
-        <Card withBorder radius="md" p={40} ta="center">
+        <Paper shadow="sm" p="md" radius="md" withBorder ta="center">
           <ThemeIcon size={64} radius="xl" color="indigo" variant="light" mx="auto" mb="md">
             <IconChartBar size="2rem" stroke={1.5} />
           </ThemeIcon>
@@ -505,13 +506,12 @@ export default function SheetOverviewTab() {
             <Button 
               onClick={() => fetchData(selectedSheet || sheetNames[0])} 
               leftSection={<IconRefresh size={16} />}
-              radius="md"
               size="md"
             >
               Tải tab: {selectedSheet || sheetNames[0]}
             </Button>
           )}
-        </Card>
+        </Paper>
       )}
     </Stack>
   );

@@ -1,5 +1,5 @@
-import { Card, Title, Text, Group, Button, Table } from '@mantine/core';
-import { IconRefresh, IconCopy, IconBolt } from '@tabler/icons-react';
+import { Paper, Title, Text, Group, Button, Table, ThemeIcon } from '@mantine/core';
+import { IconRefresh, IconCopy, IconBolt, IconUserCheck } from '@tabler/icons-react';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { notifications } from '@mantine/notifications';
@@ -64,18 +64,24 @@ export default function ConfirmedTab() {
 
   return (
     <>
-      <Card withBorder radius="md" p="xl">
-        <Group justify="space-between" mb="lg">
+      <Group justify="space-between" align="center" mb="lg">
+        <Group gap="sm">
+          <ThemeIcon color="indigo" variant="light" size={40} radius="md">
+            <IconUserCheck size="1.6rem" stroke={1.5} />
+          </ThemeIcon>
           <div>
-            <Title order={3}>Quản lý khách đã chốt</Title>
-            <Text size="xs" c="dimmed" mt={2}>Xem các liên kết đã xác định trạng thái khách chốt và cập nhật hàng loạt</Text>
+            <Title order={2}>Quản lý khách đã chốt</Title>
+            <Text size="xs" c="dimmed">Xem các liên kết đã xác định trạng thái khách chốt và cập nhật hàng loạt</Text>
           </div>
-          <Group>
-            <Button variant="default" leftSection={<IconRefresh size={16} />} onClick={refresh} loading={loading}>Tải lại</Button>
-            <Button variant="default" leftSection={<IconCopy size={16} />} onClick={copyAll}>Copy link Sheets</Button>
-            <Button leftSection={<IconBolt size={16} />} onClick={bulkRunning}>Chuyển &quot;Đang chạy&quot;</Button>
-          </Group>
         </Group>
+        <Group gap="xs">
+          <Button variant="default" size="md" leftSection={<IconRefresh size={16} />} onClick={refresh} loading={loading}>Tải lại</Button>
+          <Button variant="light" color="indigo" size="md" leftSection={<IconCopy size={16} />} onClick={copyAll}>Copy link Sheets</Button>
+          <Button variant="filled" color="indigo" size="md" leftSection={<IconBolt size={16} />} onClick={bulkRunning}>Chuyển &quot;Đang chạy&quot;</Button>
+        </Group>
+      </Group>
+
+      <Paper shadow="sm" p="md" radius="md" withBorder>
 
         {list.length === 0 ? (
           <Text c="dimmed" fs="italic" py="lg" ta="center">Không có khách nào đang ở trạng thái khách chốt.</Text>
@@ -99,7 +105,7 @@ export default function ConfirmedTab() {
             </Table.Tbody>
           </Table>
         )}
-      </Card>
+      </Paper>
     </>
   );
 }

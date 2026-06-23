@@ -1,5 +1,5 @@
-import { Card, Title, TextInput, Textarea, Button, SimpleGrid, Group, Table, ActionIcon, Text } from '@mantine/core';
-import { IconTrash, IconPlus, IconCode, IconSettings } from '@tabler/icons-react';
+import { Paper, Title, TextInput, Textarea, Button, SimpleGrid, Group, Table, ActionIcon, Text, ThemeIcon } from '@mantine/core';
+import { IconTrash, IconPlus, IconCode, IconSettings, IconCheck } from '@tabler/icons-react';
 import { useAppStore } from '@/store/useAppStore';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
@@ -106,13 +106,41 @@ export default function ConfigTab() {
 
   return (
     <>
-      <Card withBorder radius="md" p="xl">
-        <Title order={3} mb="lg">Cấu hình hệ thống mặc định</Title>
+      <Group gap="sm" mb="lg">
+        <ThemeIcon color="indigo" variant="light" size={40} radius="md">
+          <IconSettings size="1.6rem" stroke={1.5} />
+        </ThemeIcon>
+        <div>
+          <Title order={2}>Cấu hình hệ thống</Title>
+          <Text size="xs" c="dimmed">Quản lý các tài nguyên Drive mặc định và liên kết tên dịch vụ hệ thống</Text>
+        </div>
+      </Group>
+
+      <Paper shadow="sm" p="md" radius="md" withBorder mb="xl">
+        <Title order={3} mb="lg">Cấu hình Drive & Google Sheets</Title>
         
-        <SimpleGrid cols={{ base: 1, sm: 3 }} mb="xl">
-          <TextInput label="Template Spreadsheet ID" placeholder="Nhập ID Sheet mẫu..." value={formData.templateId} onChange={(e) => setFormData({...formData, templateId: e.target.value})} />
-          <TextInput label="Folder ID (Drive)" placeholder="Nhập ID Folder chứa..." value={formData.folderId} onChange={(e) => setFormData({...formData, folderId: e.target.value})} />
-          <TextInput label="Source Spreadsheet ID" placeholder="Nhập ID Sheet nguồn..." value={formData.sourceSheetId} onChange={(e) => setFormData({...formData, sourceSheetId: e.target.value})} />
+        <SimpleGrid cols={{ base: 1, sm: 3 }} mb="xl" gap="md">
+          <TextInput 
+            label="Template Spreadsheet ID" 
+            placeholder="Nhập ID Sheet mẫu..." 
+            value={formData.templateId} 
+            onChange={(e) => setFormData({...formData, templateId: e.target.value})} 
+            size="md"
+          />
+          <TextInput 
+            label="Folder ID (Drive)" 
+            placeholder="Nhập ID Folder chứa..." 
+            value={formData.folderId} 
+            onChange={(e) => setFormData({...formData, folderId: e.target.value})} 
+            size="md"
+          />
+          <TextInput 
+            label="Source Spreadsheet ID" 
+            placeholder="Nhập ID Sheet nguồn..." 
+            value={formData.sourceSheetId} 
+            onChange={(e) => setFormData({...formData, sourceSheetId: e.target.value})} 
+            size="md"
+          />
         </SimpleGrid>
 
         <Group justify="space-between" mb="sm">
@@ -121,8 +149,8 @@ export default function ConfigTab() {
             <Text size="xs" c="dimmed">Liên kết tên dịch vụ của hệ thống với tiền tố tên Tab trong Google Sheets</Text>
           </div>
           <Button 
-            size="xs" 
-            variant="subtle" 
+            size="md" 
+            variant="light" 
             color="indigo" 
             leftSection={rawJsonMode ? <IconSettings size={14} /> : <IconCode size={14} />} 
             onClick={toggleJsonMode}
@@ -133,16 +161,17 @@ export default function ConfigTab() {
 
         {rawJsonMode ? (
           <Textarea 
-            placeholder="VD: { &quot;Podcast&quot;: &quot;Podcast&quot; }" 
+            placeholder='VD: { "Podcast": "Podcast" }' 
             rows={8} 
             value={rawJsonText} 
             onChange={(e) => setRawJsonText(e.target.value)} 
             mb="xl" 
+            size="md"
             style={{ fontFamily: 'monospace' }}
           />
         ) : (
-          <Card withBorder p="md" mb="xl" radius="md">
-            <Table withTableBorder>
+          <Paper shadow="xs" p="md" mb="xl" radius="md" withBorder>
+            <Table withTableBorder striped>
               <Table.Thead>
                 <Table.Tr>
                   <Table.Th style={{ width: '45%' }}>Tên dịch vụ</Table.Th>
@@ -158,8 +187,7 @@ export default function ConfigTab() {
                         placeholder="VD: Podcast" 
                         value={item.key} 
                         onChange={(e) => updateMappingRow(idx, 'key', e.target.value)}
-                        variant="unstyled"
-                        style={{ borderBottom: '1px dashed #ced4da', paddingBottom: 2 }}
+                        size="md"
                       />
                     </Table.Td>
                     <Table.Td>
@@ -167,12 +195,11 @@ export default function ConfigTab() {
                         placeholder="VD: Podcast" 
                         value={item.value} 
                         onChange={(e) => updateMappingRow(idx, 'value', e.target.value)}
-                        variant="unstyled"
-                        style={{ borderBottom: '1px dashed #ced4da', paddingBottom: 2 }}
+                        size="md"
                       />
                     </Table.Td>
                     <Table.Td style={{ textAlign: 'right' }}>
-                      <ActionIcon color="red" variant="subtle" onClick={() => removeMappingRow(idx)}>
+                      <ActionIcon color="red" variant="subtle" size="lg" onClick={() => removeMappingRow(idx)}>
                         <IconTrash size={16} />
                       </ActionIcon>
                     </Table.Td>
@@ -181,17 +208,19 @@ export default function ConfigTab() {
               </Table.Tbody>
             </Table>
             <Group justify="center" mt="md">
-              <Button size="xs" variant="light" color="indigo" leftSection={<IconPlus size={14} />} onClick={addMappingRow}>
+              <Button size="md" variant="light" color="indigo" leftSection={<IconPlus size={14} />} onClick={addMappingRow}>
                 Thêm Dịch Vụ Mới
               </Button>
             </Group>
-          </Card>
+          </Paper>
         )}
 
         <Group justify="flex-end" mt="xl">
-          <Button onClick={save}>Lưu Cấu Hình</Button>
+          <Button variant="filled" color="indigo" size="md" leftSection={<IconCheck size={16} />} onClick={save}>
+            Lưu Cấu Hình
+          </Button>
         </Group>
-      </Card>
+      </Paper>
     </>
   );
 }

@@ -1,5 +1,5 @@
-import { SimpleGrid, Paper, Text, Group, ThemeIcon, Card, Title, TextInput, Button } from '@mantine/core';
-import { IconLayersIntersect, IconClock, IconBolt, IconCheck, IconX, IconPlus, IconSettings } from '@tabler/icons-react';
+import { SimpleGrid, Paper, Text, Group, ThemeIcon, Title, TextInput, Button } from '@mantine/core';
+import { IconLayersIntersect, IconClock, IconBolt, IconCheck, IconX, IconPlus, IconSettings, IconLayoutDashboard } from '@tabler/icons-react';
 import { useAppStore } from '@/store/useAppStore';
 import { useDisclosure } from '@mantine/hooks';
 import axios from 'axios';
@@ -50,6 +50,16 @@ export default function DashboardTab() {
 
   return (
     <>
+      <Group gap="sm" mb="lg">
+        <ThemeIcon color="indigo" variant="light" size={40} radius="md">
+          <IconLayoutDashboard size="1.6rem" stroke={1.5} />
+        </ThemeIcon>
+        <div>
+          <Title order={2}>Bảng điều khiển</Title>
+          <Text size="xs" c="dimmed">Giám sát trạng thái hàng đợi và thêm các tác vụ đồng bộ hóa Google Sheets</Text>
+        </div>
+      </Group>
+
       <SimpleGrid cols={{ base: 1, sm: 2, lg: 5 }} mb="xl">
         {/* Total Card */}
         <Paper withBorder p="md" radius="md" style={{ cursor: 'pointer' }} onClick={() => router.push('/?tab=jobs')}>
@@ -107,7 +117,7 @@ export default function DashboardTab() {
         </Paper>
       </SimpleGrid>
 
-      <Card withBorder radius="md" p="xl" mb="xl">
+      <Paper shadow="sm" p="md" radius="md" withBorder mb="xl">
         <Title order={3} mb="lg">Thêm Job mới</Title>
         <SimpleGrid cols={{ base: 1, sm: 2 }} mb="md">
           <TextInput 
@@ -115,27 +125,28 @@ export default function DashboardTab() {
             placeholder="VD: Tháng 5 – Batch 1" 
             value={formData.name} 
             onChange={(e) => setFormData({...formData, name: e.target.value})} 
+            size="md"
           />
           <SheetSelector label="Tên Sheet" required value={formData.sheetName} onChange={(val) => setFormData({...formData, sheetName: val})} sourceSheetId={formData.sourceSheetId} />
         </SimpleGrid>
         
         {opened && (
           <SimpleGrid cols={{ base: 1, sm: 3 }} mb="md">
-            <TextInput label="Source Sheet ID" placeholder="Tùy chọn" description="Để trống = dùng config" value={formData.sourceSheetId} onChange={(e) => setFormData({...formData, sourceSheetId: e.target.value})} />
-            <TextInput label="Template ID" placeholder="Tùy chọn" description="Để trống = dùng config" value={formData.templateId} onChange={(e) => setFormData({...formData, templateId: e.target.value})} />
-            <TextInput label="Folder ID" placeholder="Tùy chọn" description="Để trống = dùng config" value={formData.folderId} onChange={(e) => setFormData({...formData, folderId: e.target.value})} />
+            <TextInput label="Source Sheet ID" placeholder="Tùy chọn" description="Để trống = dùng config" value={formData.sourceSheetId} onChange={(e) => setFormData({...formData, sourceSheetId: e.target.value})} size="md" />
+            <TextInput label="Template ID" placeholder="Tùy chọn" description="Để trống = dùng config" value={formData.templateId} onChange={(e) => setFormData({...formData, templateId: e.target.value})} size="md" />
+            <TextInput label="Folder ID" placeholder="Tùy chọn" description="Để trống = dùng config" value={formData.folderId} onChange={(e) => setFormData({...formData, folderId: e.target.value})} size="md" />
           </SimpleGrid>
         )}
 
         <Group justify="flex-end" mt="md">
-          <Button variant="default" onClick={toggle} leftSection={<IconSettings size={16} />}>
+          <Button variant="default" size="md" onClick={toggle} leftSection={<IconSettings size={16} />}>
             Tùy chọn nâng cao
           </Button>
-          <Button leftSection={<IconPlus size={16} />} onClick={submitJob} loading={loading}>
+          <Button variant="filled" color="indigo" size="md" leftSection={<IconPlus size={16} />} onClick={submitJob} loading={loading}>
             Thêm Job
           </Button>
         </Group>
-      </Card>
+      </Paper>
     </>
   );
 }

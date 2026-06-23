@@ -1,12 +1,44 @@
 @import "tailwindcss";
 
+html {
+  overflow-y: scroll;
+}
+
+/* Custom scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+html[data-mantine-color-scheme="dark"] ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 4px;
+}
+
+html[data-mantine-color-scheme="dark"] ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.24);
+}
+
+html[data-mantine-color-scheme="light"] ::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.12);
+  border-radius: 4px;
+}
+
+html[data-mantine-color-scheme="light"] ::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.24);
+}
+
 html[data-mantine-color-scheme="dark"] {
   --body-bg: #0a0a0a;
   --panel-bg: #141517;
 }
 
 html[data-mantine-color-scheme="light"] {
-  --body-bg: #f1f3f5;
+  --body-bg: #f8f9fa;
   --panel-bg: #ffffff;
 }
 

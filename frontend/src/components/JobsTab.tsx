@@ -1,10 +1,10 @@
 'use client';
 import { 
-  Card, Title, Text, Group, Badge, Table, Progress, ActionIcon, 
+  Title, Text, Group, Badge, Table, Progress, ActionIcon, 
   Modal, ScrollArea, Button, Stack, RingProgress, Collapse, ThemeIcon,
   Tooltip, Paper
 } from '@mantine/core';
-import { IconTrash, IconTerminal, IconX, IconClock, IconPlayerPlay, IconCheck, IconAlertCircle, IconChevronDown, IconChevronUp } from '@tabler/icons-react';
+import { IconTrash, IconTerminal, IconX, IconClock, IconPlayerPlay, IconCheck, IconAlertCircle, IconChevronDown, IconChevronUp, IconListCheck } from '@tabler/icons-react';
 import { useAppStore } from '@/store/useAppStore';
 import axios from 'axios';
 import { notifications } from '@mantine/notifications';
@@ -186,14 +186,24 @@ export default function JobsTab() {
 
   return (
     <>
+      <Group gap="sm" mb="lg">
+        <ThemeIcon color="indigo" variant="light" size={40} radius="md">
+          <IconListCheck size="1.6rem" stroke={1.5} />
+        </ThemeIcon>
+        <div>
+          <Title order={2}>Danh sách Jobs</Title>
+          <Text size="xs" c="dimmed">Xem trạng thái tiến trình các job tự động hóa dữ liệu và logs chi tiết</Text>
+        </div>
+      </Group>
+
       {/* Live running banner */}
       {runningJob && <RunningJobBanner job={runningJob} />}
 
-      <Card withBorder radius="md" p="xl">
+      <Paper shadow="sm" p="md" radius="md" withBorder>
         <Group justify="space-between" mb="lg">
           <div>
             <Group gap="xs" mb={4}>
-              <Title order={3}>Danh sách Jobs</Title>
+              <Title order={4}>Hàng đợi tác vụ</Title>
               {statusFilter && (
                 <Badge color={getStatusColor(statusFilter)} size="md">{statusFilter.toUpperCase()}</Badge>
               )}
@@ -209,12 +219,12 @@ export default function JobsTab() {
           </div>
           <Group gap="xs">
             {statusFilter && (
-              <Button size="xs" variant="default" leftSection={<IconX size={14} />} onClick={() => router.push('/?tab=jobs')}>
+              <Button size="md" variant="default" leftSection={<IconX size={14} />} onClick={() => router.push('/?tab=jobs')}>
                 Xóa bộ lọc
               </Button>
             )}
             {(counts.done > 0 || counts.error > 0) && !isQueueRunning && (
-              <Button size="xs" variant="subtle" color="red" onClick={clearHistory}>
+              <Button size="md" variant="light" color="red" onClick={clearHistory}>
                 Xóa lịch sử ({counts.done + counts.error})
               </Button>
             )}
@@ -249,7 +259,7 @@ export default function JobsTab() {
             </Table.Tbody>
           </Table>
         )}
-      </Card>
+      </Paper>
 
       {/* Log Detail Modal */}
       <Modal

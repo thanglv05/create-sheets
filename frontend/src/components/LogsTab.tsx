@@ -1,5 +1,5 @@
-import { Card, Title, Text, Group, Select, ActionIcon, Tooltip } from '@mantine/core';
-import { IconTerminal, IconTrash } from '@tabler/icons-react';
+import { Paper, Title, Text, Group, Select, ThemeIcon } from '@mantine/core';
+import { IconTerminal } from '@tabler/icons-react';
 import { useAppStore } from '@/store/useAppStore';
 import { useState, useRef, useEffect } from 'react';
 
@@ -32,25 +32,46 @@ export default function LogsTab() {
 
   return (
     <>
-      <Card withBorder radius="md" p={0} bg="#000" style={{ border: '1px solid #333' }}>
-        <Group justify="space-between" px="md" py="xs" style={{ borderBottom: '1px solid #333', backgroundColor: '#111' }}>
+      <Group gap="sm" mb="lg">
+        <ThemeIcon color="indigo" variant="light" size={40} radius="md">
+          <IconTerminal size="1.6rem" stroke={1.5} />
+        </ThemeIcon>
+        <div>
+          <Title order={2}>Nhật ký hệ thống</Title>
+          <Text size="xs" c="dimmed">Xem chi tiết nhật ký hoạt động thời gian thực và lịch sử xử lý của hệ thống</Text>
+        </div>
+      </Group>
+
+      <Paper shadow="sm" p="md" radius="md" withBorder mb="xl">
+        <Group justify="space-between" mb="md">
           <Group gap="xs">
-            <IconTerminal size={18} color="#888" />
-            <Text fw={600} size="sm" c="gray.4">Terminal Server Logs</Text>
+            <IconTerminal size={18} />
+            <Text fw={600} size="md">Terminal Server Logs</Text>
           </Group>
           <Select 
-            size="xs"
+            size="md"
             placeholder="Lọc theo Job" 
             data={jobs.map(j => ({ value: j.id, label: j.name }))}
             value={filter}
             onChange={setFilter}
             clearable
-            variant="unstyled"
-            style={{ borderBottom: '1px dashed #555' }}
+            w={240}
           />
         </Group>
 
-        <div ref={viewportRef} style={{ fontFamily: 'var(--font-monospace, monospace)', fontSize: 13, height: 600, overflowY: 'auto', padding: '16px 20px', lineHeight: 1.6 }}>
+        <Paper 
+          bg="dark.8" 
+          p="md" 
+          radius="md" 
+          ref={viewportRef} 
+          style={{ 
+            fontFamily: 'monospace', 
+            fontSize: 13, 
+            height: 600, 
+            overflowY: 'auto', 
+            lineHeight: 1.6 
+          }}
+        >
           {filteredLogs.length === 0 ? <Text c="dimmed" fs="italic">Chưa có logs...</Text> : 
             filteredLogs.map((l, i) => (
               <div key={i} style={{ marginBottom: 2, color: getColor(l.level, l.message), display: 'flex', gap: 12 }}>
@@ -59,8 +80,8 @@ export default function LogsTab() {
               </div>
             ))
           }
-        </div>
-      </Card>
+        </Paper>
+      </Paper>
     </>
   );
 }

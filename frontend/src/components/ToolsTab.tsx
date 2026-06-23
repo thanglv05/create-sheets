@@ -1,6 +1,6 @@
 'use client';
-import { Card, Title, Text, Tabs, TextInput, Textarea, Button, Table, Group, SimpleGrid, ActionIcon, MultiSelect, SegmentedControl, Collapse, Select } from '@mantine/core';
-import { IconUsers, IconLink, IconUpload, IconTag, IconRobot, IconSearch, IconPlus, IconTrash, IconSettings } from '@tabler/icons-react';
+import { Paper, Title, Text, Tabs, TextInput, Textarea, Button, Table, Group, SimpleGrid, ActionIcon, MultiSelect, SegmentedControl, Collapse, Select, ThemeIcon } from '@mantine/core';
+import { IconUsers, IconLink, IconUpload, IconTag, IconRobot, IconSearch, IconPlus, IconTrash, IconSettings, IconTool } from '@tabler/icons-react';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { notifications } from '@mantine/notifications';
@@ -233,14 +233,18 @@ export default function ToolsTab() {
 
   return (
     <>
-      <Group gap="xs" mb="lg">
-        <Text size="sm" c="dimmed" fw={500}>Công cụ</Text>
-        <Text size="sm" c="dimmed">/</Text>
-        <Text size="sm" fw={600} c="indigo">{tabLabels[activeSubTab]}</Text>
+      <Group gap="sm" mb="lg">
+        <ThemeIcon color="indigo" variant="light" size={40} radius="md">
+          <IconTool size="1.6rem" stroke={1.5} />
+        </ThemeIcon>
+        <div>
+          <Title order={2}>Công cụ tự động hóa</Title>
+          <Text size="xs" c="dimmed">Sử dụng các công cụ hỗ trợ để quét khách hàng, cập nhật trạng thái, điền thông tin và thêm tab dịch vụ</Text>
+        </div>
       </Group>
 
       <Tabs value={activeSubTab} onChange={(val) => setActiveSubTab(val || 'customer-confirmed')} keepMounted={false}>
-        <Card withBorder radius="md" p={0} mb="lg" style={{ overflow: 'visible' }}>
+        <Paper shadow="sm" p={0} radius="md" withBorder mb="lg" style={{ overflow: 'visible' }}>
           <Tabs.List style={{ 
             borderBottom: 'none', 
             padding: '12px 16px',
@@ -253,9 +257,9 @@ export default function ToolsTab() {
             <Tabs.Tab value="scrape-info" leftSection={<IconRobot size={16} />} style={{ fontWeight: 600 }}>Tự động điền Info</Tabs.Tab>
             <Tabs.Tab value="add-single-tab" leftSection={<IconPlus size={16} />} style={{ fontWeight: 600 }}>Thêm Tab Đơn Lẻ</Tabs.Tab>
           </Tabs.List>
-        </Card>
+        </Paper>
 
-        <Card withBorder radius="md" p="xl" style={{ minHeight: '400px' }}>
+        <Paper shadow="sm" p="md" radius="md" withBorder mih={480}>
           <Tabs.Panel value="customer-confirmed">
             <Title order={3} mb="xs">Tìm URL khách chốt</Title>
             <Text c="dimmed" size="sm" mb="xl">Quét sheet, tìm URL có trạng thái "khách chốt" và match với file Drive tương ứng.</Text>
@@ -264,7 +268,7 @@ export default function ToolsTab() {
               <div style={{ flex: 1, maxWidth: 400 }}>
                 <SheetSelector label="Tên Sheet" required value={ccSheetName} onChange={setCcSheetName} />
               </div>
-              <Button leftSection={<IconSearch size={16} />} onClick={searchConfirmed} loading={loading}>
+              <Button variant="filled" color="indigo" radius="md" leftSection={<IconSearch size={16} />} onClick={searchConfirmed} loading={loading}>
                 Tìm khách chốt
               </Button>
             </Group>
@@ -296,7 +300,7 @@ export default function ToolsTab() {
             <Text c="dimmed" size="sm" mb="xl">Nhập danh sách tên file (mỗi dòng 1 tên), tìm URL Google Sheets trong Drive.</Text>
             
             <Textarea label="Danh sách tên file" placeholder="Nhập danh sách tên file, mỗi file một dòng..." rows={8} required mb="md" value={guItems} onChange={(e) => setGuItems(e.target.value)} />
-            <Button leftSection={<IconSearch size={16} />} onClick={getUrls} loading={loading} mb="xl">
+            <Button variant="filled" color="indigo" radius="md" leftSection={<IconSearch size={16} />} onClick={getUrls} loading={loading} mb="xl">
               Tìm URLs
             </Button>
             
@@ -332,12 +336,12 @@ export default function ToolsTab() {
             </Group>
             
             <Collapse in={advancedOpened}>
-              <Card withBorder p="md" mb="md" radius="md">
+              <Paper shadow="xs" p="md" radius="md" withBorder mb="md">
                 <SimpleGrid cols={{ base: 1, sm: 2 }} gap="md">
                   <TextInput label="API Key" placeholder="Nhập API Key..." value={pdApiKey} onChange={e => setPdApiKey(e.target.value)} />
                   <TextInput label="API Base URL" placeholder="https://api.example.com" value={pdApiBase} onChange={e => setPdApiBase(e.target.value)} />
                 </SimpleGrid>
-              </Card>
+              </Paper>
             </Collapse>
 
             {config?.nameMap && (
@@ -366,7 +370,7 @@ export default function ToolsTab() {
             />
 
             {inputMode === 'bulk' && (
-              <Card withBorder p="md" mb="xl" radius="md" style={{ backgroundColor: 'rgba(77, 171, 247, 0.05)' }}>
+              <Paper shadow="xs" p="md" radius="md" withBorder mb="xl" style={{ backgroundColor: 'rgba(77, 171, 247, 0.05)' }}>
                 <Text fw={600} size="sm" mb="xs">Dán nội dung chứa ID bộ và Link/URL</Text>
                 <Text size="xs" c="dimmed" mb="md">
                   Bạn có thể dán danh sách ngăn cách bởi dấu gạch đứng (|), dấu phẩy, dấu chấm phẩy hoặc khoảng trắng (Ví dụ: <b>ID bộ | Link Sheet hoặc ID Sheet</b>), hệ thống sẽ tự động ghép cặp.
@@ -379,19 +383,19 @@ export default function ToolsTab() {
                   mb="md"
                 />
                 <Group justify="flex-end">
-                  <Button color="teal" onClick={handleBulkImport}>
+                  <Button variant="filled" color="indigo" radius="md" onClick={handleBulkImport}>
                     Phân tích & Thêm vào danh sách
                   </Button>
                 </Group>
-              </Card>
+              </Paper>
             )}
 
             {inputMode === 'manual' && (
-              <Card withBorder p="md" radius="md" mb="xl">
+              <Paper shadow="xs" p="md" radius="md" withBorder mb="xl">
                 <Group justify="space-between" mb="md">
                   <Text fw={600} size="sm">Danh sách Tasks cần chạy ({pdRows.length})</Text>
                   {pdRows.length > 0 && (
-                    <Button variant="subtle" color="red" size="xs" onClick={() => setPdRows([])}>
+                    <Button variant="light" color="red" radius="md" size="xs" onClick={() => setPdRows([])}>
                       Xóa tất cả
                     </Button>
                   )}
@@ -453,16 +457,16 @@ export default function ToolsTab() {
                 )}
 
                 <Group justify="space-between" mt="md">
-                  <Button variant="default" leftSection={<IconPlus size={16}/>} onClick={() => setPdRows([...pdRows, { sheetIdOrUrl: '', setId: '' }])}>
+                  <Button variant="default" radius="md" leftSection={<IconPlus size={16}/>} onClick={() => setPdRows([...pdRows, { sheetIdOrUrl: '', setId: '' }])}>
                     Thêm dòng nhiệm vụ
                   </Button>
                   {pdRows.length > 0 && (
-                    <Button leftSection={<IconUpload size={16} />} onClick={pushData} loading={loading}>
+                    <Button variant="filled" color="indigo" radius="md" leftSection={<IconUpload size={16} />} onClick={pushData} loading={loading}>
                       Bắt đầu push ({pdRows.length} jobs)
                     </Button>
                   )}
                 </Group>
-              </Card>
+              </Paper>
             )}
           </Tabs.Panel>
 
@@ -478,7 +482,7 @@ export default function ToolsTab() {
             </SimpleGrid>
             
             <Textarea label="Danh sách URLs" placeholder="Nhập danh sách URL cần cập nhật, mỗi URL một dòng..." rows={6} required mb="md" value={usUrls} onChange={e => setUsUrls(e.target.value)} />
-            <Button leftSection={<IconTag size={16} />} onClick={updateStatus} loading={loading}>
+            <Button variant="filled" color="indigo" radius="md" leftSection={<IconTag size={16} />} onClick={updateStatus} loading={loading}>
               Cập nhật trạng thái
             </Button>
           </Tabs.Panel>
@@ -490,7 +494,7 @@ export default function ToolsTab() {
             <Textarea label="Danh sách URLs" description="Mỗi dòng 1 link" placeholder="https://..." rows={6} required mb="md" value={siUrls} onChange={e => setSiUrls(e.target.value)} />
             <DriveFileSelector label="Chọn File Spreadsheet" description="Tùy chọn - để trống = tự tìm theo URL" value={siSpreadsheetId} onChange={setSiSpreadsheetId} />
             
-            <Button leftSection={<IconRobot size={16} />} onClick={scrapeInfo} loading={loading} mt="lg">
+            <Button variant="filled" color="indigo" radius="md" leftSection={<IconRobot size={16} />} onClick={scrapeInfo} loading={loading} mt="lg">
               Bắt đầu tự động điền
             </Button>
 
@@ -561,12 +565,12 @@ export default function ToolsTab() {
               />
             </SimpleGrid>
             
-            <Button leftSection={<IconPlus size={16} />} onClick={handleApiAddSingleTab} loading={loading} mb="xl">
+            <Button variant="filled" color="indigo" radius="md" leftSection={<IconPlus size={16} />} onClick={handleApiAddSingleTab} loading={loading} mb="xl">
               Thêm Tab vào File
             </Button>
 
             {astResults.length > 0 && (
-              <Card withBorder radius="md" p="md">
+              <Paper shadow="xs" p="md" radius="md" withBorder>
                 <Text fw={600} size="sm" mb="md">Kết quả thực hiện ({astResults.length}):</Text>
                 <Table striped withTableBorder>
                   <Table.Thead>
@@ -606,10 +610,10 @@ export default function ToolsTab() {
                     ))}
                   </Table.Tbody>
                 </Table>
-              </Card>
+              </Paper>
             )}
           </Tabs.Panel>
-        </Card>
+        </Paper>
       </Tabs>
     </>
   );

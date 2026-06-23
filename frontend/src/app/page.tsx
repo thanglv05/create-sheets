@@ -392,13 +392,15 @@ function AppContent() {
         </AppShell.Navbar>
 
         <AppShell.Main>
-          {activeTab === 'dashboard' && <DashboardTab key="dashboard" />}
-          {activeTab === 'jobs' && <JobsTab key="jobs" />}
-          {activeTab === 'sheet-overview' && <SheetOverviewTab key="sheet-overview" />}
-          {activeTab === 'tools' && <ToolsTab key="tools" />}
-          {activeTab === 'confirmed' && <ConfirmedTab key="confirmed" />}
-          {activeTab === 'config' && <ConfigTab key="config" />}
-          {activeTab === 'logs' && <LogsTab key="logs" />}
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: '550px', width: '100%' }}>
+            {activeTab === 'dashboard' && <DashboardTab key="dashboard" />}
+            {activeTab === 'jobs' && <JobsTab key="jobs" />}
+            {activeTab === 'sheet-overview' && <SheetOverviewTab key="sheet-overview" />}
+            {activeTab === 'tools' && <ToolsTab key="tools" />}
+            {activeTab === 'confirmed' && <ConfirmedTab key="confirmed" />}
+            {activeTab === 'config' && <ConfigTab key="config" />}
+            {activeTab === 'logs' && <LogsTab key="logs" />}
+          </div>
         </AppShell.Main>
       </AppShell>
     </>
