@@ -77,7 +77,8 @@ async function fetchExcel(apiKey, apiBase, service, id, log) {
     "Share Social": "social",
     "Blog 2.0": "blog20",
     "Entity": "entity",
-    "Link Cloud": "link-cloud"
+    "Link Cloud": "link-cloud",
+    "Blog Comment": "blog-comment"
   };
 
   let apiService = null;

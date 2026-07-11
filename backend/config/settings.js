@@ -19,6 +19,7 @@ const DEFAULT_CONFIG = {
     "Blog 2.0": "BLOG 2.0",
     Entity: "ENTITY",
     "Link Cloud": "LINK CLOUD",
+    "Blog Comment": "BLOG COMMENT",
   },
   // Cấu hình cho pushData
   pushDataApiKey: process.env.PUSH_DATA_API_KEY || "46a5cc0181990549672bb6d70558393d",
