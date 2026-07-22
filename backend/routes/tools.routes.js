@@ -214,7 +214,7 @@ router.post("/scrape-info", async (req, res) => {
       const values = mapScrapeDataToSheet(data);
       await batchWriteValues(finalSheetId, [
         {
-          range: "THÔNG TIN!C2:C15",
+          range: "THÔNG TIN!C2:C16",
           values: values
         }
       ], "USER_ENTERED");
@@ -461,16 +461,17 @@ router.post("/insert-email", async (req, res) => {
         const spreadsheetId = await resolveSpreadsheetId(url, targetFolderId);
 
         const values = [
-          [mailInfo.email],
-          [mailInfo.pass],
-          [mailInfo.appPassword],
-          [mailInfo.twoFA],
-          [mailInfo.recoveryEmail]
+          [mailInfo.email],        // C11: GMAIL
+          [entityMode],            // C12: ENTITY EMAIL (One/Many)
+          [mailInfo.pass],         // C13: PASS
+          [mailInfo.appPassword],  // C14: APP PASSWORD
+          [mailInfo.twoFA],        // C15: 2FA
+          [mailInfo.recoveryEmail] // C16: RECOVERY EMAIL
         ];
 
         await batchWriteValues(spreadsheetId, [
           {
-            range: "THÔNG TIN!C11:C15",
+            range: "THÔNG TIN!C11:C16",
             values: values
           }
         ], "USER_ENTERED");

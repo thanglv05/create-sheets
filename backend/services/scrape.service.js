@@ -34,11 +34,12 @@ function mapScrapeDataToSheet(data) {
     [p.logo || ""],                  // C8: LOGO
     [p.banner || ""],                // C9: BANNER
     [p.username || ""],              // C10: USERNAME
-    [data.gmail || data.email || ""], // C11: GMAIL (ngoài profile)
-    [data.pass || data.password || ""], // C12: PASS
-    [data.appPassword || ""],        // C13: APP PASSWORD
-    [data.twoFA || ""],              // C14: 2FA
-    [data.recoveryEmail || ""]       // C15: RECOVERY EMAIL
+    [data.gmail || data.email || ""], // C11: GMAIL
+    ["One"],                         // C12: ENTITY EMAIL
+    [data.pass || data.password || ""], // C13: PASS
+    [data.appPassword || ""],        // C14: APP PASSWORD
+    [data.twoFA || ""],              // C15: 2FA
+    [data.recoveryEmail || ""]       // C16: RECOVERY EMAIL
   ];
 }
 
