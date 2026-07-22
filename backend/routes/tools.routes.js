@@ -416,4 +416,82 @@ router.post("/add-single-tab", async (req, res) => {
   }
 });
 
+// ===== POST /api/tools/insert-email =====
+router.post("/insert-email", async (req, res) => {
+  try {
+    const cfg = loadConfig();
+    const { urls, emailText, entityMode = "One", defaultRecovery = "ilerarrewj7765754@hotmail.com", folderId } = req.body;
+
+    if (!urls || !emailText) {
+      return res.status(400).json({ error: "Vui lòng nhập đầy đủ Danh sách URL và Nội dung Email." });
+    }
+
+    const urlList = (Array.isArray(urls) ? urls : urls.split("\n"))
+      .map(u => u.trim())
+      .filter(Boolean);
+
+    const emailLines = emailText.split("\n").map(l => l.trim()).filter(Boolean);
+
+    const parsedEmails = emailLines.map(line => {
+      // Split by tab (\t) or 2+ spaces
+      const parts = line.split(/\t+|\s{2,}/).map(p => p.trim());
+      return {
+        email: parts[0] || "",
+        pass: parts[1] || "",
+        appPassword: parts[2] || "",
+        twoFA: parts[3] || "",
+        recoveryEmail: parts[4] || defaultRecovery
+      };
+    });
+
+    const { resolveSpreadsheetId } = require("../core/processor");
+    const { batchWriteValues } = require("../services/sheets.service");
+
+    const targetFolderId = folderId || cfg.folderId;
+    const results = [];
+
+    const totalToProcess = Math.min(urlList.length, parsedEmails.length);
+
+    for (let i = 0; i < totalToProcess; i++) {
+      const url = urlList[i];
+      const mailInfo = parsedEmails[i];
+      const itemResult = { url, email: mailInfo.email, status: "pending" };
+
+      try {
+        const spreadsheetId = await resolveSpreadsheetId(url, targetFolderId);
+
+        const values = [
+          [mailInfo.email],
+          [mailInfo.pass],
+          [mailInfo.appPassword],
+          [mailInfo.twoFA],
+          [mailInfo.recoveryEmail]
+        ];
+
+        await batchWriteValues(spreadsheetId, [
+          {
+            range: "THÔNG TIN!C11:C15",
+            values: values
+          }
+        ], "USER_ENTERED");
+
+        itemResult.status = "success";
+        itemResult.fileId = spreadsheetId;
+        itemResult.fileUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}`;
+      } catch (err) {
+        console.error(`[InsertEmail] Lỗi khi xử lý URL ${url}:`, err.message);
+        itemResult.status = "error";
+        itemResult.error = err.message;
+      }
+
+      results.push(itemResult);
+    }
+
+    res.json({ success: true, results, totalProcessed: results.length });
+  } catch (err) {
+    console.error("[InsertEmail]", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

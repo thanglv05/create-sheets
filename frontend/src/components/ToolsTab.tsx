@@ -1,6 +1,6 @@
 'use client';
 import { Paper, Title, Text, Tabs, TextInput, Textarea, Button, Table, Group, SimpleGrid, ActionIcon, MultiSelect, SegmentedControl, Collapse, Select, ThemeIcon } from '@mantine/core';
-import { IconUsers, IconLink, IconUpload, IconTag, IconRobot, IconSearch, IconPlus, IconTrash, IconSettings, IconTool } from '@tabler/icons-react';
+import { IconUsers, IconLink, IconUpload, IconTag, IconRobot, IconSearch, IconPlus, IconTrash, IconSettings, IconTool, IconMail } from '@tabler/icons-react';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { notifications } from '@mantine/notifications';
@@ -15,7 +15,8 @@ const tabLabels: Record<string, string> = {
   'push-data': 'Push data',
   'update-status': 'Cập nhật trạng thái',
   'scrape-info': 'Tự động điền Info',
-  'add-single-tab': 'Thêm Tab Đơn Lẻ'
+  'add-single-tab': 'Thêm Tab Đơn Lẻ',
+  'insert-email': 'Điền Email'
 };
 
 export default function ToolsTab() {
@@ -34,6 +35,58 @@ export default function ToolsTab() {
   const [astServiceNames, setAstServiceNames] = useState<string[]>([]);
   const [astCount, setAstCount] = useState<number | string>('');
   const [astResults, setAstResults] = useState<any[]>([]);
+
+  const [ieUrls, setIeUrls] = useState('');
+  const [ieEmailText, setIeEmailText] = useState('');
+  const [ieEntityMode, setIeEntityMode] = useState<string>('One');
+  const [ieDefaultRecovery, setIeDefaultRecovery] = useState('ilerarrewj7765754@hotmail.com');
+  const [ieResults, setIeResults] = useState<any[]>([]);
+
+  const handleInsertEmail = async () => {
+    if (!ieUrls.trim() || !ieEmailText.trim()) {
+      notifications.show({ title: 'Cảnh báo', message: 'Vui lòng nhập đầy đủ Danh sách URL và Nội dung Email!', color: 'orange' });
+      return;
+    }
+    setLoading(true);
+    setIeResults([]);
+    try {
+      const res = await axios.post('/api/tools/insert-email', {
+        urls: ieUrls,
+        emailText: ieEmailText,
+        entityMode: ieEntityMode,
+        defaultRecovery: ieDefaultRecovery
+      });
+      const results = res.data.results || [];
+      setIeResults(results);
+
+      const successCount = results.filter((r: any) => r.status === 'success').length;
+      const errorCount = results.filter((r: any) => r.status === 'error').length;
+
+      if (errorCount > 0) {
+        notifications.show({
+          title: 'Hoàn tất với một số lỗi ⚠️',
+          message: `Đã điền email xong: ${successCount} thành công, ${errorCount} lỗi.`,
+          color: 'orange',
+          autoClose: 8000
+        });
+      } else {
+        notifications.show({
+          title: 'Thành công 🎯',
+          message: `Đã điền email cho ${successCount} file Google Sheets!`,
+          color: 'teal',
+          autoClose: 5000
+        });
+      }
+    } catch (e: any) {
+      notifications.show({
+        title: 'Lỗi',
+        message: e.response?.data?.error || e.message,
+        color: 'red'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleApiAddSingleTab = async () => {
     if (!astUrlsOrIds || astServiceNames.length === 0 || !astCount) {
@@ -256,6 +309,7 @@ export default function ToolsTab() {
             <Tabs.Tab value="update-status" leftSection={<IconTag size={16} />} style={{ fontWeight: 600 }}>Update trạng thái</Tabs.Tab>
             <Tabs.Tab value="scrape-info" leftSection={<IconRobot size={16} />} style={{ fontWeight: 600 }}>Tự động điền Info</Tabs.Tab>
             <Tabs.Tab value="add-single-tab" leftSection={<IconPlus size={16} />} style={{ fontWeight: 600 }}>Thêm Tab Đơn Lẻ</Tabs.Tab>
+            <Tabs.Tab value="insert-email" leftSection={<IconMail size={16} />} style={{ fontWeight: 600 }}>Điền Email</Tabs.Tab>
           </Tabs.List>
         </Paper>
 
@@ -603,6 +657,97 @@ export default function ToolsTab() {
                           ) : (
                             <a href={r.fileUrl} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--mantine-color-indigo-filled)', fontWeight: 600, fontSize: '14px' }}>
                               🔗 Mở file ({r.sheetTitle})
+                            </a>
+                          )}
+                        </Table.Td>
+                      </Table.Tr>
+                    ))}
+                  </Table.Tbody>
+                </Table>
+              </Paper>
+            )}
+          </Tabs.Panel>
+
+          <Tabs.Panel value="insert-email">
+            <Title order={3} mb="xs">Tự động Điền Email & Bảo mật vào Sheet</Title>
+            <Text c="dimmed" size="sm" mb="xl">
+              Nhập URL Website/Link Sheet và khối dữ liệu Email tương ứng để tự động tìm file Google Sheets và điền thông tin vào tab "THÔNG TIN".
+            </Text>
+            
+            <Textarea
+              label="Danh sách Đường dẫn (URL Website / Link Google Sheets / ID)"
+              description="Mỗi đường dẫn trên một dòng"
+              required 
+              placeholder="Ví dụ:&#10;https://visavietnamonline.org/vietnam-visa-fees&#10;https://visavietnamonline.org/apply-extra-services&#10;https://visaonlinevietnam.com/services"
+              rows={6}
+              value={ieUrls}
+              onChange={e => setIeUrls(e.target.value)}
+              mb="md"
+            />
+
+            <Textarea
+              label="Danh sách Email & Thông tin bảo mật"
+              description="Định dạng mỗi dòng (Tab hoặc 2+ khoảng cách): Email [Tab] Pass [Tab] AppPass [Tab] 2FA"
+              required 
+              placeholder="Ví dụ:&#10;danghaison707@likepion.com	EWcpzu121!	grsq qozo cwcu eqwf	odyx wqda 7xp5 mv5x 7u2w bs3e kxiz 2qgr&#10;phamthanhthuy7822@likepion.com	IGyfjc477#	rfdt yfwe fbhz jbjg	BJUQKD5ATZ3LZTNSNTRQPOHTQEKSWNQB"
+              rows={6}
+              value={ieEmailText}
+              onChange={e => setIeEmailText(e.target.value)}
+              mb="md"
+            />
+
+            <SimpleGrid cols={{ base: 1, sm: 2 }} mb="md" gap="md">
+              <Select
+                label="Loại Entity Email"
+                data={['One', 'Many']}
+                value={ieEntityMode}
+                onChange={val => setIeEntityMode(val || 'One')}
+                size="md"
+              />
+              <TextInput
+                label="Recovery Email mặc định"
+                placeholder="ilerarrewj7765754@hotmail.com"
+                value={ieDefaultRecovery}
+                onChange={e => setIeDefaultRecovery(e.target.value)}
+                size="md"
+              />
+            </SimpleGrid>
+            
+            <Button variant="filled" color="indigo" radius="md" size="md" leftSection={<IconMail size={16} />} onClick={handleInsertEmail} loading={loading} mb="xl">
+              Bắt đầu điền Email
+            </Button>
+
+            {ieResults.length > 0 && (
+              <Paper shadow="xs" p="md" radius="md" withBorder>
+                <Text fw={600} size="sm" mb="md">Kết quả thực hiện ({ieResults.length}):</Text>
+                <Table striped withTableBorder>
+                  <Table.Thead>
+                    <Table.Tr>
+                      <Table.Th>URL / ID Website</Table.Th>
+                      <Table.Th>Email đã điền</Table.Th>
+                      <Table.Th>Trạng thái</Table.Th>
+                      <Table.Th>Kết quả / Liên kết Sheet</Table.Th>
+                    </Table.Tr>
+                  </Table.Thead>
+                  <Table.Tbody>
+                    {ieResults.map((r, i) => (
+                      <Table.Tr key={i}>
+                        <Table.Td style={{ wordBreak: 'break-all' }}>{r.url}</Table.Td>
+                        <Table.Td>{r.email}</Table.Td>
+                        <Table.Td>
+                          {r.status === 'success' && (
+                            <Text c="teal" fw={600} size="sm">Thành công</Text>
+                          )}
+                          {r.status === 'error' && (
+                            <Text c="red" fw={600} size="sm">Lỗi</Text>
+                          )}
+                        </Table.Td>
+                        <Table.Td>
+                          {r.status === 'error' ? (
+                            <Text c="dimmed" size="xs">{r.error}</Text>
+                          ) : (
+                            <a href={r.fileUrl} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--mantine-color-indigo-filled)', fontWeight: 600, fontSize: '14px' }}>
+                              🔗 Mở Sheet
                             </a>
                           )}
                         </Table.Td>
