@@ -224,19 +224,54 @@ async function resolveSpreadsheetId(input, folderId) {
   const targetFolderId = folderId || loadConfig().folderId;
   let allFiles = await listFiles(targetFolderId);
   
-  const findMatch = (files) => files.find((f) => {
-    const fileName = f.name.toLowerCase().trim().replace(/_+$/, "");
-    if (safeName.includes("...")) {
-      const prefix = safeName.split("...")[0];
-      return fileName.startsWith(prefix);
-    }
-    return fileName === safeName;
-  });
+  const normalizeKey = (str) => {
+    if (!str) return "";
+    return str
+      .toLowerCase()
+      .trim()
+      .replace(/^https?:\/\//i, "")
+      .replace(/^www\./i, "")
+      .replace(/[^a-z0-9]/gi, "");
+  };
+
+  const findMatch = (files) => {
+    const targetClean = safeName.toLowerCase().trim().replace(/_+$/, "");
+    const targetAlpha = normalizeKey(input);
+
+    // Tier 1: Exact match (clean name)
+    let matched = files.find((f) => {
+      const fileName = f.name.toLowerCase().trim().replace(/_+$/, "");
+      if (safeName.includes("...")) {
+        const prefix = safeName.split("...")[0].toLowerCase().trim();
+        return fileName.startsWith(prefix);
+      }
+      return fileName === targetClean;
+    });
+    if (matched) return matched;
+
+    // Tier 2: Normalized Alphanumeric match (ignoring www, http, slashes, dashes, underscores)
+    matched = files.find((f) => {
+      const nameAlpha = normalizeKey(f.name);
+      return nameAlpha === targetAlpha && targetAlpha.length > 0;
+    });
+    if (matched) return matched;
+
+    // Tier 3: Substring match (in case file has additional prefixes/suffixes like "Copy of", etc.)
+    matched = files.find((f) => {
+      const nameAlpha = normalizeKey(f.name);
+      return (
+        targetAlpha &&
+        nameAlpha.length >= 6 &&
+        (nameAlpha.includes(targetAlpha) || targetAlpha.includes(nameAlpha))
+      );
+    });
+    return matched;
+  };
 
   let matchedFile = findMatch(allFiles);
 
   // Nếu không tìm thấy trong folder chỉ định (có thể là file được share),
-  // thử tìm trên toàn bộ Google Drive (shared with me)
+  // thử tìm trên toàn bộ Google Drive (bao gồm "Shared with me")
   if (!matchedFile) {
     const allDriveFiles = await listFiles(null);
     matchedFile = findMatch(allDriveFiles);
