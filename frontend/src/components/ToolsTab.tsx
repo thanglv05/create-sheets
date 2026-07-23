@@ -1,6 +1,6 @@
 'use client';
 import { Paper, Title, Text, Tabs, TextInput, Textarea, Button, Table, Group, SimpleGrid, ActionIcon, MultiSelect, SegmentedControl, Collapse, Select, ThemeIcon } from '@mantine/core';
-import { IconUsers, IconLink, IconUpload, IconTag, IconRobot, IconSearch, IconPlus, IconTrash, IconSettings, IconTool, IconMail } from '@tabler/icons-react';
+import { IconUsers, IconLink, IconUpload, IconTag, IconRobot, IconSearch, IconPlus, IconTrash, IconSettings, IconTool, IconMail, IconTargetArrow } from '@tabler/icons-react';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { notifications } from '@mantine/notifications';
@@ -16,7 +16,8 @@ const tabLabels: Record<string, string> = {
   'update-status': 'Cập nhật trạng thái',
   'scrape-info': 'Tự động điền Info',
   'add-single-tab': 'Thêm Tab Đơn Lẻ',
-  'insert-email': 'Điền Email'
+  'insert-email': 'Điền Email',
+  'insert-target-url': 'Điền Target URL'
 };
 
 export default function ToolsTab() {
@@ -41,6 +42,34 @@ export default function ToolsTab() {
   const [ieEntityMode, setIeEntityMode] = useState<string>('One');
   const [ieDefaultRecovery, setIeDefaultRecovery] = useState('ilerarrewj7765754@hotmail.com');
   const [ieResults, setIeResults] = useState<any[]>([]);
+
+  const [ituUrls, setItuUrls] = useState('');
+  const [ituResults, setItuResults] = useState<any[]>([]);
+
+  const handleInsertTargetUrl = async () => {
+    if (!ituUrls.trim()) {
+      notifications.show({ title: 'Cảnh báo', message: 'Vui lòng nhập danh sách URL!', color: 'orange' });
+      return;
+    }
+    setLoading(true);
+    setItuResults([]);
+    try {
+      const res = await axios.post('/api/tools/insert-target-url', { urls: ituUrls });
+      const results = res.data.results || [];
+      setItuResults(results);
+      const successCount = results.filter((r: any) => r.status === 'success').length;
+      const errorCount = results.filter((r: any) => r.status === 'error').length;
+      if (errorCount > 0) {
+        notifications.show({ title: 'Hoàn tất với một số lỗi ⚠️', message: `${successCount} thành công, ${errorCount} lỗi.`, color: 'orange', autoClose: 8000 });
+      } else {
+        notifications.show({ title: 'Thành công 🎯', message: `Đã điền Target URL cho ${successCount} file!`, color: 'teal', autoClose: 5000 });
+      }
+    } catch (e: any) {
+      notifications.show({ title: 'Lỗi', message: e.response?.data?.error || e.message, color: 'red' });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleInsertEmail = async () => {
     if (!ieUrls.trim() || !ieEmailText.trim()) {
@@ -310,6 +339,7 @@ export default function ToolsTab() {
             <Tabs.Tab value="scrape-info" leftSection={<IconRobot size={16} />} style={{ fontWeight: 600 }}>Tự động điền Info</Tabs.Tab>
             <Tabs.Tab value="add-single-tab" leftSection={<IconPlus size={16} />} style={{ fontWeight: 600 }}>Thêm Tab Đơn Lẻ</Tabs.Tab>
             <Tabs.Tab value="insert-email" leftSection={<IconMail size={16} />} style={{ fontWeight: 600 }}>Điền Email</Tabs.Tab>
+            <Tabs.Tab value="insert-target-url" leftSection={<IconTargetArrow size={16} />} style={{ fontWeight: 600 }}>Điền Target URL</Tabs.Tab>
           </Tabs.List>
         </Paper>
 
@@ -747,6 +777,63 @@ export default function ToolsTab() {
                             <Text c="dimmed" size="xs">{r.error}</Text>
                           ) : (
                             <a href={r.fileUrl} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--mantine-color-indigo-filled)', fontWeight: 600, fontSize: '14px' }}>
+                              🔗 Mở Sheet
+                            </a>
+                          )}
+                        </Table.Td>
+                      </Table.Tr>
+                    ))}
+                  </Table.Tbody>
+                </Table>
+              </Paper>
+            )}
+          </Tabs.Panel>
+
+          <Tabs.Panel value="insert-target-url">
+            <Title order={3} mb="xs">Điền Target URL vào Sheet</Title>
+            <Text c="dimmed" size="sm" mb="xl">
+              Nhập danh sách URL Website – hệ thống sẽ tự động tìm file Google Sheets tương ứng và điền URL vào ô <strong>B1 (TARGET)</strong> trong tab <strong>THÔNG TIN</strong>.
+            </Text>
+
+            <Textarea
+              label="Danh sách URL (mỗi dòng một URL)"
+              description="URL Website hoặc Link Google Sheets"
+              required
+              placeholder={"https://minhhoanggifts.com/san-xuat-but-chi-gia-re-chi-quang-cao/\nhttps://minhhoanggifts.com/san-xuat-but-bi-gia-re-but-bi-quang-cao/"}
+              rows={8}
+              value={ituUrls}
+              onChange={e => setItuUrls(e.target.value)}
+              mb="md"
+            />
+
+            <Button variant="filled" color="teal" radius="md" size="md" leftSection={<IconTargetArrow size={16} />} onClick={handleInsertTargetUrl} loading={loading} mb="xl">
+              Bắt đầu điền Target URL
+            </Button>
+
+            {ituResults.length > 0 && (
+              <Paper shadow="xs" p="md" radius="md" withBorder>
+                <Text fw={600} size="sm" mb="md">Kết quả ({ituResults.length} URL):</Text>
+                <Table striped withTableBorder>
+                  <Table.Thead>
+                    <Table.Tr>
+                      <Table.Th>URL đã điền</Table.Th>
+                      <Table.Th>Trạng thái</Table.Th>
+                      <Table.Th>Liên kết Sheet</Table.Th>
+                    </Table.Tr>
+                  </Table.Thead>
+                  <Table.Tbody>
+                    {ituResults.map((r, i) => (
+                      <Table.Tr key={i}>
+                        <Table.Td style={{ wordBreak: 'break-all', maxWidth: 360 }}>{r.url}</Table.Td>
+                        <Table.Td>
+                          {r.status === 'success' && <Text c="teal" fw={600} size="sm">Thành công</Text>}
+                          {r.status === 'error' && <Text c="red" fw={600} size="sm">Lỗi</Text>}
+                        </Table.Td>
+                        <Table.Td>
+                          {r.status === 'error' ? (
+                            <Text c="dimmed" size="xs">{r.error}</Text>
+                          ) : (
+                            <a href={r.fileUrl} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--mantine-color-teal-filled)', fontWeight: 600, fontSize: '14px' }}>
                               🔗 Mở Sheet
                             </a>
                           )}

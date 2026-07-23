@@ -495,4 +495,55 @@ router.post("/insert-email", async (req, res) => {
   }
 });
 
+// ===== POST /api/tools/insert-target-url =====
+// Nhận danh sách URL, tìm file Sheet tương ứng và điền vào ô B1 (TARGET) trong tab THÔNG TIN
+router.post("/insert-target-url", async (req, res) => {
+  try {
+    const cfg = loadConfig();
+    const { urls, folderId } = req.body;
+
+    if (!urls) {
+      return res.status(400).json({ error: "Vui lòng nhập danh sách URL." });
+    }
+
+    const urlList = (Array.isArray(urls) ? urls : urls.split("\n"))
+      .map(u => u.trim())
+      .filter(Boolean);
+
+    const { resolveSpreadsheetId } = require("../core/processor");
+    const { batchWriteValues } = require("../services/sheets.service");
+
+    const targetFolderId = folderId || cfg.folderId;
+    const results = [];
+
+    for (const url of urlList) {
+      const itemResult = { url, status: "pending" };
+      try {
+        const spreadsheetId = await resolveSpreadsheetId(url, targetFolderId);
+
+        await batchWriteValues(spreadsheetId, [
+          {
+            range: "THÔNG TIN!B1",
+            values: [[url]]
+          }
+        ], "USER_ENTERED");
+
+        itemResult.status = "success";
+        itemResult.fileId = spreadsheetId;
+        itemResult.fileUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}`;
+      } catch (err) {
+        console.error(`[InsertTargetUrl] Lỗi khi xử lý URL ${url}:`, err.message);
+        itemResult.status = "error";
+        itemResult.error = err.message;
+      }
+      results.push(itemResult);
+    }
+
+    res.json({ success: true, results, totalProcessed: results.length });
+  } catch (err) {
+    console.error("[InsertTargetUrl]", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;
