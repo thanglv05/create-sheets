@@ -30,11 +30,16 @@ async function setPublicAccess(fileId) {
 }
 
 /**
- * Liệt kê tất cả spreadsheet files trong folder (có thể lọc theo query)
+ * Liệt kê tất cả spreadsheet files trong folder (hoặc toàn bộ nếu folderId null), có thể lọc theo query
  */
 async function listFiles(folderId, customQuery = "") {
   const drive = await getDriveClient();
-  let q = `'${folderId}' in parents and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false`;
+  let q = `mimeType='application/vnd.google-apps.spreadsheet' and trashed=false`;
+  
+  if (folderId) {
+    q += ` and '${folderId}' in parents`;
+  }
+  
   if (customQuery) {
     q += ` and ${customQuery}`;
   }
@@ -43,6 +48,7 @@ async function listFiles(folderId, customQuery = "") {
     q,
     fields: "files(id, name)",
     pageSize: 1000,
+    orderBy: "modifiedTime desc",
   });
   return res.data.files || [];
 }

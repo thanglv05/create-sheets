@@ -160,77 +160,70 @@ router.post("/confirm-to-running", async (req, res) => {
 });
 
 // ===== POST /api/tools/scrape-info =====
-// Bulk Scrape & Auto-fill
+// Bulk Scrape & Auto-fill (SSE streaming)
 router.post("/scrape-info", async (req, res) => {
   const { urls, spreadsheetId: manualId } = req.body;
   if (!urls || !Array.isArray(urls)) return res.status(400).json({ error: "Danh sách URLs là bắt buộc" });
 
-  console.log(`[BulkScrape] Bắt đầu xử lý ${urls.length} URLs`);
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  res.flushHeaders();
+  const send = (data) => res.write(`data: ${JSON.stringify(data)}\n\n`);
 
-  const { scrapeUrl, mapScrapeDataToSheet } = require("../services/scrape.service");
-  const { batchWriteValues } = require("../services/sheets.service");
-  const { listFiles } = require("../services/drive.service");
-  const cfg = loadConfig();
+  try {
+    const { scrapeUrl, mapScrapeDataToSheet } = require("../services/scrape.service");
+    const { batchWriteValues } = require("../services/sheets.service");
+    const { listFiles } = require("../services/drive.service");
+    const cfg = loadConfig();
+    const total = urls.length;
+    const results = [];
 
-  const results = [];
+    send({ type: "start", total });
 
-  for (let url of urls) {
-    const result = { url, status: "pending" };
-    try {
+    for (let i = 0; i < total; i++) {
+      let url = urls[i];
       if (!url) continue;
-
-      // Tự động sửa lỗi nếu người dùng nhập tên file thay vì URL
-      // Ví dụ: trannhattruong.com_ong-mat_ -> https://trannhattruong.com/ong-mat/
       if (!url.startsWith("http") && url.includes("_")) {
-        console.log(`[BulkScrape] Phát hiện input dạng tên file, đang chuyển đổi ngược lại...`);
         url = "https://" + url.replace(/_/g, "/").replace(/\/+$/, "/");
       } else if (!url.startsWith("http")) {
         url = "https://" + url;
       }
-
-      // 1. Cào
-      const data = await scrapeUrl(url);
-
-      // 2. Tìm file phù hợp (Dùng list và filter trong JS để tăng độ chính xác)
-      let finalSheetId = manualId;
-      if (!finalSheetId) {
-        const safeName = url.replace(/https?:\/\//, "").replace(/\//g, "_").toLowerCase().trim();
-        console.log(`[BulkScrape] Đang tìm file khớp với: "${safeName}"`);
-        
-        const allFiles = await listFiles(cfg.folderId);
-        const match = allFiles.find(f => {
-          const fileName = f.name.toLowerCase().trim();
-          return fileName === safeName || fileName === safeName.replace(/_$/, ""); // Thử cả trường hợp có/không có gạch dưới cuối
-        });
-
-        if (!match) {
-          throw new Error(`Không tìm thấy file spreadsheet tên: ${safeName}`);
+      const result = { url, status: "pending" };
+      send({ type: "progress", current: i + 1, total, url, status: "processing" });
+      try {
+        const data = await scrapeUrl(url);
+        let finalSheetId = manualId;
+        if (!finalSheetId) {
+          const safeName = url.replace(/https?:\/\//, "").replace(/\//g, "_").toLowerCase().trim();
+          const allFiles = await listFiles(cfg.folderId);
+          const match = allFiles.find(f => {
+            const fileName = f.name.toLowerCase().trim();
+            return fileName === safeName || fileName === safeName.replace(/_$/, "");
+          });
+          if (!match) throw new Error(`Không tìm thấy file: ${safeName}`);
+          finalSheetId = match.id;
         }
-        finalSheetId = match.id;
-        console.log(`[BulkScrape] Khớp thành công file: ${match.name} (${finalSheetId})`);
+        const values = mapScrapeDataToSheet(data);
+        await batchWriteValues(finalSheetId, [{ range: "THÔNG TIN!C2:C16", values }], "USER_ENTERED");
+        result.status = "success";
+        result.fileId = finalSheetId;
+        result.fileUrl = `https://docs.google.com/spreadsheets/d/${finalSheetId}`;
+        send({ type: "progress", current: i + 1, total, url, status: "success", fileUrl: result.fileUrl });
+      } catch (err) {
+        result.status = "error";
+        result.error = err.message;
+        send({ type: "progress", current: i + 1, total, url, status: "error", error: err.message });
+        console.error(`[BulkScrape] Lỗi ${url}:`, err.message);
       }
-
-      // 3. Ghi vào tab "THÔNG TIN"
-      const values = mapScrapeDataToSheet(data);
-      await batchWriteValues(finalSheetId, [
-        {
-          range: "THÔNG TIN!C2:C16",
-          values: values
-        }
-      ], "USER_ENTERED");
-
-      result.status = "success";
-      result.fileId = finalSheetId;
-      result.data = data;
-    } catch (err) {
-      console.error(`[BulkScrape] Lỗi URL ${url}:`, err.message);
-      result.status = "error";
-      result.error = err.message;
+      results.push(result);
     }
-    results.push(result);
+    send({ type: "done", results, totalProcessed: results.length });
+  } catch (err) {
+    send({ type: "error", error: err.message });
+    console.error("[BulkScrape]", err);
   }
-
-  res.json({ success: true, results });
+  res.end();
 });
 
 // ===== GET /api/tools/drive-files =====
@@ -351,46 +344,47 @@ router.get("/sheet-overview", async (req, res) => {
 });
 
 // ===== POST /api/tools/add-single-tab =====
+// SSE streaming
 router.post("/add-single-tab", async (req, res) => {
+  const { urlOrId, urlsOrIds, serviceName, serviceNames, count, templateId, folderId } = req.body;
+
+  let targetInputs = [];
+  if (Array.isArray(urlsOrIds)) targetInputs = urlsOrIds;
+  else if (urlsOrIds && typeof urlsOrIds === "string") targetInputs = urlsOrIds.split("\n").map(u => u.trim()).filter(u => u);
+  else if (urlOrId) targetInputs = [urlOrId.trim()];
+
+  let targetServices = [];
+  if (Array.isArray(serviceNames)) targetServices = serviceNames;
+  else if (serviceNames && typeof serviceNames === "string") targetServices = [serviceNames];
+  else if (serviceName) targetServices = [serviceName];
+
+  if (targetInputs.length === 0 || targetServices.length === 0 || !count) {
+    return res.status(400).json({ error: "Danh sách URL/ID, loại dịch vụ và count là bắt buộc." });
+  }
+
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  res.flushHeaders();
+  const send = (data) => res.write(`data: ${JSON.stringify(data)}\n\n`);
+
   try {
     const cfg = loadConfig();
-    const { urlOrId, urlsOrIds, serviceName, serviceNames, count, templateId, folderId } = req.body;
-
-    // Hỗ trợ cả single urlOrId hoặc danh sách urlsOrIds (dạng array hoặc chuỗi phân tách bằng dòng mới)
-    let targetInputs = [];
-    if (Array.isArray(urlsOrIds)) {
-      targetInputs = urlsOrIds;
-    } else if (urlsOrIds && typeof urlsOrIds === "string") {
-      targetInputs = urlsOrIds.split("\n").map(u => u.trim()).filter(u => u);
-    } else if (urlOrId) {
-      targetInputs = [urlOrId.trim()];
-    }
-
-    // Hỗ trợ cả single serviceName hoặc danh sách serviceNames (dạng array)
-    let targetServices = [];
-    if (Array.isArray(serviceNames)) {
-      targetServices = serviceNames;
-    } else if (serviceNames && typeof serviceNames === "string") {
-      targetServices = [serviceNames];
-    } else if (serviceName) {
-      targetServices = [serviceName];
-    }
-
-    if (targetInputs.length === 0 || targetServices.length === 0 || !count) {
-      return res.status(400).json({ error: "Danh sách URL/ID, loại dịch vụ và count là bắt buộc." });
-    }
-
     const { addSingleTab } = require("../services/addTab.service");
+    const total = targetInputs.length * targetServices.length;
     const results = [];
+    let idx = 0;
+
+    send({ type: "start", total });
 
     for (const input of targetInputs) {
       for (const service of targetServices) {
+        idx++;
         const result = { input, serviceName: service, status: "pending" };
+        send({ type: "progress", current: idx, total, input, url: input, serviceName: service, status: "processing" });
         try {
           const astRes = await addSingleTab({
-            urlOrId: input,
-            serviceName: service,
-            count,
+            urlOrId: input, serviceName: service, count,
             templateId: templateId || cfg.templateId,
             folderId: folderId || cfg.folderId,
             nameMap: cfg.nameMap,
@@ -400,62 +394,59 @@ router.post("/add-single-tab", async (req, res) => {
           result.sheetTitle = astRes.sheetTitle;
           result.fileId = astRes.fileId;
           result.fileUrl = astRes.fileUrl;
+          send({ type: "progress", current: idx, total, input, url: input, serviceName: service, status: result.status, fileUrl: result.fileUrl, sheetTitle: result.sheetTitle });
         } catch (err) {
-          console.error(`[AddSingleTab] Lỗi khi xử lý ${input} - ${service}:`, err.message);
           result.status = "error";
           result.error = err.message;
+          send({ type: "progress", current: idx, total, input, url: input, serviceName: service, status: "error", error: err.message });
+          console.error(`[AddSingleTab] Lỗi ${input} - ${service}:`, err.message);
         }
         results.push(result);
       }
     }
-
-    res.json({ success: true, results });
+    send({ type: "done", results, totalProcessed: results.length });
   } catch (err) {
+    send({ type: "error", error: err.message });
     console.error("[AddSingleTab]", err);
-    res.status(500).json({ error: err.message });
   }
+  res.end();
 });
 
 // ===== POST /api/tools/insert-email =====
+// SSE streaming
 router.post("/insert-email", async (req, res) => {
+  const { urls, emailText, entityMode = "One", defaultRecovery = "ilerarrewj7765754@hotmail.com", folderId } = req.body;
+
+  if (!urls || !emailText) {
+    return res.status(400).json({ error: "Vui lòng nhập đầy đủ Danh sách URL và Nội dung Email." });
+  }
+
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  res.flushHeaders();
+  const send = (data) => res.write(`data: ${JSON.stringify(data)}\n\n`);
+
   try {
     const cfg = loadConfig();
-    const { urls, emailText, entityMode = "One", defaultRecovery = "ilerarrewj7765754@hotmail.com", folderId } = req.body;
-
-    if (!urls || !emailText) {
-      return res.status(400).json({ error: "Vui lòng nhập đầy đủ Danh sách URL và Nội dung Email." });
-    }
-
-    const urlList = (Array.isArray(urls) ? urls : urls.split("\n"))
-      .map(u => u.trim())
-      .filter(Boolean);
-
+    const urlList = (Array.isArray(urls) ? urls : urls.split("\n")).map(u => u.trim()).filter(Boolean);
     const emailLines = emailText.split("\n").map(l => l.trim()).filter(Boolean);
-
     const parsedEmails = emailLines.map(line => {
-      // Split by tab (\t) or 2+ spaces
       const parts = line.split(/\t+|\s{2,}/).map(p => p.trim());
-      return {
-        email: parts[0] || "",
-        pass: parts[1] || "",
-        appPassword: parts[2] || "",
-        twoFA: parts[3] || "",
-        recoveryEmail: parts[4] || defaultRecovery
-      };
+      return { email: parts[0] || "", pass: parts[1] || "", appPassword: parts[2] || "", twoFA: parts[3] || "", recoveryEmail: parts[4] || defaultRecovery };
     });
-
     const { resolveSpreadsheetId } = require("../core/processor");
     const { batchWriteValues } = require("../services/sheets.service");
-
     const targetFolderId = folderId || cfg.folderId;
+    const total = Math.min(urlList.length, parsedEmails.length);
     const results = [];
+    send({ type: "start", total });
 
-    const totalToProcess = Math.min(urlList.length, parsedEmails.length);
-
-    for (let i = 0; i < totalToProcess; i++) {
+    for (let i = 0; i < total; i++) {
       const url = urlList[i];
       const mailInfo = parsedEmails[i];
       const itemResult = { url, email: mailInfo.email, status: "pending" };
+      send({ type: "progress", current: i + 1, total, url, email: mailInfo.email, status: "processing" });
 
       try {
         const spreadsheetId = await resolveSpreadsheetId(url, targetFolderId);
@@ -479,71 +470,76 @@ router.post("/insert-email", async (req, res) => {
         itemResult.status = "success";
         itemResult.fileId = spreadsheetId;
         itemResult.fileUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}`;
+        send({ type: "progress", current: i + 1, total, url, email: mailInfo.email, status: "success", fileUrl: itemResult.fileUrl });
       } catch (err) {
-        console.error(`[InsertEmail] Lỗi khi xử lý URL ${url}:`, err.message);
         itemResult.status = "error";
         itemResult.error = err.message;
+        send({ type: "progress", current: i + 1, total, url, email: mailInfo.email, status: "error", error: err.message });
+        console.error(`[InsertEmail] Lỗi URL ${url}:`, err.message);
       }
 
       results.push(itemResult);
     }
 
-    res.json({ success: true, results, totalProcessed: results.length });
+    send({ type: "done", results, totalProcessed: results.length });
   } catch (err) {
+    send({ type: "error", error: err.message });
     console.error("[InsertEmail]", err);
-    res.status(500).json({ error: err.message });
   }
+  res.end();
 });
 
 // ===== POST /api/tools/insert-target-url =====
-// Nhận danh sách URL, tìm file Sheet tương ứng và điền vào ô B1 (TARGET) trong tab THÔNG TIN
+// SSE streaming - tìm file Sheet và điền B1 (TARGET)
 router.post("/insert-target-url", async (req, res) => {
+  const { urls, folderId } = req.body;
+
+  if (!urls) {
+    return res.status(400).json({ error: "Vui lòng nhập danh sách URL." });
+  }
+
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  res.flushHeaders();
+  const send = (data) => res.write(`data: ${JSON.stringify(data)}\n\n`);
+
   try {
     const cfg = loadConfig();
-    const { urls, folderId } = req.body;
-
-    if (!urls) {
-      return res.status(400).json({ error: "Vui lòng nhập danh sách URL." });
-    }
-
-    const urlList = (Array.isArray(urls) ? urls : urls.split("\n"))
-      .map(u => u.trim())
-      .filter(Boolean);
-
+    const urlList = (Array.isArray(urls) ? urls : urls.split("\n")).map(u => u.trim()).filter(Boolean);
     const { resolveSpreadsheetId } = require("../core/processor");
     const { batchWriteValues } = require("../services/sheets.service");
-
     const targetFolderId = folderId || cfg.folderId;
+    const total = urlList.length;
     const results = [];
 
-    for (const url of urlList) {
+    send({ type: "start", total });
+
+    for (let i = 0; i < total; i++) {
+      const url = urlList[i];
       const itemResult = { url, status: "pending" };
+      send({ type: "progress", current: i + 1, total, url, status: "processing" });
       try {
         const spreadsheetId = await resolveSpreadsheetId(url, targetFolderId);
-
-        await batchWriteValues(spreadsheetId, [
-          {
-            range: "THÔNG TIN!B1",
-            values: [[url]]
-          }
-        ], "USER_ENTERED");
-
+        await batchWriteValues(spreadsheetId, [{ range: "THÔNG TIN!B1", values: [[url]] }], "USER_ENTERED");
         itemResult.status = "success";
         itemResult.fileId = spreadsheetId;
         itemResult.fileUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}`;
+        send({ type: "progress", current: i + 1, total, url, status: "success", fileUrl: itemResult.fileUrl });
       } catch (err) {
-        console.error(`[InsertTargetUrl] Lỗi khi xử lý URL ${url}:`, err.message);
         itemResult.status = "error";
         itemResult.error = err.message;
+        send({ type: "progress", current: i + 1, total, url, status: "error", error: err.message });
+        console.error(`[InsertTargetUrl] Lỗi ${url}:`, err.message);
       }
       results.push(itemResult);
     }
-
-    res.json({ success: true, results, totalProcessed: results.length });
+    send({ type: "done", results, totalProcessed: results.length });
   } catch (err) {
+    send({ type: "error", error: err.message });
     console.error("[InsertTargetUrl]", err);
-    res.status(500).json({ error: err.message });
   }
+  res.end();
 });
 
 module.exports = router;

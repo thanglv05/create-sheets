@@ -222,9 +222,9 @@ async function resolveSpreadsheetId(input, folderId) {
   const { loadConfig } = require("../config/settings");
   
   const targetFolderId = folderId || loadConfig().folderId;
-  const allFiles = await listFiles(targetFolderId);
+  let allFiles = await listFiles(targetFolderId);
   
-  const matchedFile = allFiles.find((f) => {
+  const findMatch = (files) => files.find((f) => {
     const fileName = f.name.toLowerCase().trim().replace(/_+$/, "");
     if (safeName.includes("...")) {
       const prefix = safeName.split("...")[0];
@@ -232,6 +232,15 @@ async function resolveSpreadsheetId(input, folderId) {
     }
     return fileName === safeName;
   });
+
+  let matchedFile = findMatch(allFiles);
+
+  // Nếu không tìm thấy trong folder chỉ định (có thể là file được share),
+  // thử tìm trên toàn bộ Google Drive (shared with me)
+  if (!matchedFile) {
+    const allDriveFiles = await listFiles(null);
+    matchedFile = findMatch(allDriveFiles);
+  }
 
   if (matchedFile) {
     return matchedFile.id;

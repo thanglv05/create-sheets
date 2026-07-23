@@ -8,6 +8,8 @@ import { useDisclosure } from '@mantine/hooks';
 import SheetSelector from './SheetSelector';
 import DriveFileSelector from './DriveFileSelector';
 import { useAppStore } from '@/store/useAppStore';
+import { useStreamTask } from '@/hooks/useStreamTask';
+import ProgressLog from './ProgressLog';
 
 const tabLabels: Record<string, string> = {
   'customer-confirmed': 'Khách chốt',
@@ -32,42 +34,34 @@ export default function ToolsTab() {
   const { config } = useAppStore();
   const [pdRows, setPdRows] = useState<any[]>([{ sheetIdOrUrl: '', setId: '' }]);
 
+  // === Thêm Tab Đơn Lẻ ===
   const [astUrlsOrIds, setAstUrlsOrIds] = useState('');
   const [astServiceNames, setAstServiceNames] = useState<string[]>([]);
   const [astCount, setAstCount] = useState<number | string>('');
-  const [astResults, setAstResults] = useState<any[]>([]);
+  const astStream = useStreamTask();
 
+  // === Điền Email ===
   const [ieUrls, setIeUrls] = useState('');
   const [ieEmailText, setIeEmailText] = useState('');
   const [ieEntityMode, setIeEntityMode] = useState<string>('One');
   const [ieDefaultRecovery, setIeDefaultRecovery] = useState('ilerarrewj7765754@hotmail.com');
-  const [ieResults, setIeResults] = useState<any[]>([]);
+  const ieStream = useStreamTask();
 
+  // === Điền Target URL ===
   const [ituUrls, setItuUrls] = useState('');
-  const [ituResults, setItuResults] = useState<any[]>([]);
+  const ituStream = useStreamTask();
+
+  // === Scrape Info ===
+  const scrapeStream = useStreamTask();
 
   const handleInsertTargetUrl = async () => {
     if (!ituUrls.trim()) {
       notifications.show({ title: 'Cảnh báo', message: 'Vui lòng nhập danh sách URL!', color: 'orange' });
       return;
     }
-    setLoading(true);
-    setItuResults([]);
-    try {
-      const res = await axios.post('/api/tools/insert-target-url', { urls: ituUrls });
-      const results = res.data.results || [];
-      setItuResults(results);
-      const successCount = results.filter((r: any) => r.status === 'success').length;
-      const errorCount = results.filter((r: any) => r.status === 'error').length;
-      if (errorCount > 0) {
-        notifications.show({ title: 'Hoàn tất với một số lỗi ⚠️', message: `${successCount} thành công, ${errorCount} lỗi.`, color: 'orange', autoClose: 8000 });
-      } else {
-        notifications.show({ title: 'Thành công 🎯', message: `Đã điền Target URL cho ${successCount} file!`, color: 'teal', autoClose: 5000 });
-      }
-    } catch (e: any) {
-      notifications.show({ title: 'Lỗi', message: e.response?.data?.error || e.message, color: 'red' });
-    } finally {
-      setLoading(false);
+    await ituStream.run('/api/tools/insert-target-url', { urls: ituUrls });
+    if (ituStream.isDone || true) {
+      // notifications are shown by the ProgressLog component
     }
   };
 
@@ -76,45 +70,12 @@ export default function ToolsTab() {
       notifications.show({ title: 'Cảnh báo', message: 'Vui lòng nhập đầy đủ Danh sách URL và Nội dung Email!', color: 'orange' });
       return;
     }
-    setLoading(true);
-    setIeResults([]);
-    try {
-      const res = await axios.post('/api/tools/insert-email', {
-        urls: ieUrls,
-        emailText: ieEmailText,
-        entityMode: ieEntityMode,
-        defaultRecovery: ieDefaultRecovery
-      });
-      const results = res.data.results || [];
-      setIeResults(results);
-
-      const successCount = results.filter((r: any) => r.status === 'success').length;
-      const errorCount = results.filter((r: any) => r.status === 'error').length;
-
-      if (errorCount > 0) {
-        notifications.show({
-          title: 'Hoàn tất với một số lỗi ⚠️',
-          message: `Đã điền email xong: ${successCount} thành công, ${errorCount} lỗi.`,
-          color: 'orange',
-          autoClose: 8000
-        });
-      } else {
-        notifications.show({
-          title: 'Thành công 🎯',
-          message: `Đã điền email cho ${successCount} file Google Sheets!`,
-          color: 'teal',
-          autoClose: 5000
-        });
-      }
-    } catch (e: any) {
-      notifications.show({
-        title: 'Lỗi',
-        message: e.response?.data?.error || e.message,
-        color: 'red'
-      });
-    } finally {
-      setLoading(false);
-    }
+    await ieStream.run('/api/tools/insert-email', {
+      urls: ieUrls,
+      emailText: ieEmailText,
+      entityMode: ieEntityMode,
+      defaultRecovery: ieDefaultRecovery
+    });
   };
 
   const handleApiAddSingleTab = async () => {
@@ -122,45 +83,11 @@ export default function ToolsTab() {
       notifications.show({ title: 'Cảnh báo', message: 'Vui lòng điền đầy đủ thông tin!', color: 'orange' });
       return;
     }
-    setLoading(true);
-    setAstResults([]);
-    try {
-      const res = await axios.post('/api/tools/add-single-tab', {
-        urlsOrIds: astUrlsOrIds,
-        serviceNames: astServiceNames,
-        count: astCount
-      });
-      const results = res.data.results || [];
-      setAstResults(results);
-
-      const successCount = results.filter((r: any) => r.status === 'success').length;
-      const existsCount = results.filter((r: any) => r.status === 'already_exists').length;
-      const errorCount = results.filter((r: any) => r.status === 'error').length;
-
-      if (errorCount > 0) {
-        notifications.show({
-          title: 'Hoàn tất với một số lỗi ⚠️',
-          message: `Đã xử lý xong: ${successCount} thành công, ${existsCount} đã tồn tại, ${errorCount} lỗi.`,
-          color: 'orange',
-          autoClose: 8000
-        });
-      } else {
-        notifications.show({
-          title: 'Thành công 🎯',
-          message: `Đã xử lý xong: ${successCount} thành công, ${existsCount} đã tồn tại.`,
-          color: 'teal',
-          autoClose: 5000
-        });
-      }
-    } catch (e: any) {
-      notifications.show({
-        title: 'Lỗi',
-        message: e.response?.data?.error || e.message,
-        color: 'red'
-      });
-    } finally {
-      setLoading(false);
-    }
+    await astStream.run('/api/tools/add-single-tab', {
+      urlsOrIds: astUrlsOrIds,
+      serviceNames: astServiceNames,
+      count: astCount
+    });
   };
   const [pdApiBase, setPdApiBase] = useState('');
   const [pdApiKey, setPdApiKey] = useState('');
@@ -298,19 +225,12 @@ export default function ToolsTab() {
   };
 
   const scrapeInfo = async () => {
-    setLoading(true);
-    setSiResults([]);
-    try {
-      const urls = siUrls.split('\n').map(i => i.trim()).filter(i => i);
-      const res = await axios.post('/api/tools/scrape-info', { urls, spreadsheetId: siSpreadsheetId });
-      setSiResults(res.data.results || []);
-      const successCount = (res.data.results || []).filter((r: any) => r.status === 'success').length;
-      notifications.show({ title: 'Hoàn tất', message: `Xử lý xong ${successCount}/${urls.length} URLs!`, color: 'teal' });
-    } catch (e: any) {
-      notifications.show({ title: 'Lỗi', message: e.response?.data?.error || e.message, color: 'red' });
-    } finally {
-      setLoading(false);
+    const urls = siUrls.split('\n').map(i => i.trim()).filter(i => i);
+    if (urls.length === 0) {
+      notifications.show({ title: 'Cảnh báo', message: 'Vui lòng nhập danh sách URL!', color: 'orange' });
+      return;
     }
+    await scrapeStream.run('/api/tools/scrape-info', { urls, spreadsheetId: siSpreadsheetId });
   };
 
   return (
@@ -566,50 +486,23 @@ export default function ToolsTab() {
             </SimpleGrid>
             
             <Textarea label="Danh sách URLs" placeholder="Nhập danh sách URL cần cập nhật, mỗi URL một dòng..." rows={6} required mb="md" value={usUrls} onChange={e => setUsUrls(e.target.value)} />
-            <Button variant="filled" color="indigo" radius="md" leftSection={<IconTag size={16} />} onClick={updateStatus} loading={loading}>
+            <Button variant="filled" color="indigo" radius="md" leftSection={<IconTag size={16} />} onClick={updateStatus} loading={usStream.loading} mb="md">
               Cập nhật trạng thái
             </Button>
+            <ProgressLog loading={usStream.loading} progress={usStream.progress} logs={usStream.logs} isDone={usStream.isDone} />
           </Tabs.Panel>
 
           <Tabs.Panel value="scrape-info">
             <Title order={3} mb="xs">Scrape & Điền Thông tin</Title>
-            <Text c="dimmed" size="sm" mb="xl">Nhập URL để tự động lấy thông tin doanh nghiệp và điền vào tab "THÔNG TIN".</Text>
+            <Text c="dimmed" size="sm" mb="xl">Điền URL để tự động lấy thông tin doanh nghiệp và điền vào tab "THÔNG TIN".</Text>
             
             <Textarea label="Danh sách URLs" description="Mỗi dòng 1 link" placeholder="https://..." rows={6} required mb="md" value={siUrls} onChange={e => setSiUrls(e.target.value)} />
             <DriveFileSelector label="Chọn File Spreadsheet" description="Tùy chọn - để trống = tự tìm theo URL" value={siSpreadsheetId} onChange={setSiSpreadsheetId} />
             
-            <Button variant="filled" color="indigo" radius="md" leftSection={<IconRobot size={16} />} onClick={scrapeInfo} loading={loading} mt="lg">
+            <Button variant="filled" color="indigo" radius="md" leftSection={<IconRobot size={16} />} onClick={scrapeInfo} loading={scrapeStream.loading} mt="lg" mb="md">
               Bắt đầu tự động điền
             </Button>
-
-            {siResults.length > 0 && (
-              <Table mt="xl" striped withTableBorder>
-                <Table.Thead>
-                  <Table.Tr>
-                    <Table.Th>URL</Table.Th>
-                    <Table.Th>Trạng thái</Table.Th>
-                    <Table.Th>Kết quả</Table.Th>
-                  </Table.Tr>
-                </Table.Thead>
-                <Table.Tbody>
-                  {siResults.map((r, i) => (
-                    <Table.Tr key={i}>
-                      <Table.Td style={{ wordBreak: 'break-all' }}>{r.url}</Table.Td>
-                      <Table.Td>
-                        {r.status === 'success' ? <Text c="teal" fw={600} size="sm">Thành công</Text> : <Text c="red" fw={600} size="sm">Lỗi</Text>}
-                      </Table.Td>
-                      <Table.Td>
-                        {r.status === 'success' ? (
-                          <a href={`https://docs.google.com/spreadsheets/d/${r.fileId}`} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--mantine-color-indigo-filled)' }}>🔗 Mở file</a>
-                        ) : (
-                          <Text c="dimmed" size="sm">{r.error}</Text>
-                        )}
-                      </Table.Td>
-                    </Table.Tr>
-                  ))}
-                </Table.Tbody>
-              </Table>
-            )}
+            <ProgressLog loading={scrapeStream.loading} progress={scrapeStream.progress} logs={scrapeStream.logs} isDone={scrapeStream.isDone} />
           </Tabs.Panel>
 
           <Tabs.Panel value="add-single-tab">
@@ -649,53 +542,11 @@ export default function ToolsTab() {
               />
             </SimpleGrid>
             
-            <Button variant="filled" color="indigo" radius="md" leftSection={<IconPlus size={16} />} onClick={handleApiAddSingleTab} loading={loading} mb="xl">
+            <Button variant="filled" color="indigo" radius="md" leftSection={<IconPlus size={16} />} onClick={handleApiAddSingleTab} loading={astStream.loading} mb="md">
               Thêm Tab vào File
             </Button>
 
-            {astResults.length > 0 && (
-              <Paper shadow="xs" p="md" radius="md" withBorder>
-                <Text fw={600} size="sm" mb="md">Kết quả thực hiện ({astResults.length}):</Text>
-                <Table striped withTableBorder>
-                  <Table.Thead>
-                    <Table.Tr>
-                      <Table.Th>URL / ID</Table.Th>
-                      <Table.Th>Dịch vụ</Table.Th>
-                      <Table.Th>Trạng thái</Table.Th>
-                      <Table.Th>Kết quả / Liên kết</Table.Th>
-                    </Table.Tr>
-                  </Table.Thead>
-                  <Table.Tbody>
-                    {astResults.map((r, i) => (
-                      <Table.Tr key={i}>
-                        <Table.Td style={{ wordBreak: 'break-all' }}>{r.input}</Table.Td>
-                        <Table.Td>{r.serviceName}</Table.Td>
-                        <Table.Td>
-                          {r.status === 'success' && (
-                            <Text c="teal" fw={600} size="sm">Thành công</Text>
-                          )}
-                          {r.status === 'already_exists' && (
-                            <Text c="orange" fw={600} size="sm">Đã tồn tại</Text>
-                          )}
-                          {r.status === 'error' && (
-                            <Text c="red" fw={600} size="sm">Lỗi</Text>
-                          )}
-                        </Table.Td>
-                        <Table.Td>
-                          {r.status === 'error' ? (
-                            <Text c="dimmed" size="xs">{r.error}</Text>
-                          ) : (
-                            <a href={r.fileUrl} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--mantine-color-indigo-filled)', fontWeight: 600, fontSize: '14px' }}>
-                              🔗 Mở file ({r.sheetTitle})
-                            </a>
-                          )}
-                        </Table.Td>
-                      </Table.Tr>
-                    ))}
-                  </Table.Tbody>
-                </Table>
-              </Paper>
-            )}
+            <ProgressLog loading={astStream.loading} progress={astStream.progress} logs={astStream.logs} isDone={astStream.isDone} />
           </Tabs.Panel>
 
           <Tabs.Panel value="insert-email">
@@ -743,50 +594,11 @@ export default function ToolsTab() {
               />
             </SimpleGrid>
             
-            <Button variant="filled" color="indigo" radius="md" size="md" leftSection={<IconMail size={16} />} onClick={handleInsertEmail} loading={loading} mb="xl">
+            <Button variant="filled" color="indigo" radius="md" size="md" leftSection={<IconMail size={16} />} onClick={handleInsertEmail} loading={ieStream.loading} mb="md">
               Bắt đầu điền Email
             </Button>
 
-            {ieResults.length > 0 && (
-              <Paper shadow="xs" p="md" radius="md" withBorder>
-                <Text fw={600} size="sm" mb="md">Kết quả thực hiện ({ieResults.length}):</Text>
-                <Table striped withTableBorder>
-                  <Table.Thead>
-                    <Table.Tr>
-                      <Table.Th>URL / ID Website</Table.Th>
-                      <Table.Th>Email đã điền</Table.Th>
-                      <Table.Th>Trạng thái</Table.Th>
-                      <Table.Th>Kết quả / Liên kết Sheet</Table.Th>
-                    </Table.Tr>
-                  </Table.Thead>
-                  <Table.Tbody>
-                    {ieResults.map((r, i) => (
-                      <Table.Tr key={i}>
-                        <Table.Td style={{ wordBreak: 'break-all' }}>{r.url}</Table.Td>
-                        <Table.Td>{r.email}</Table.Td>
-                        <Table.Td>
-                          {r.status === 'success' && (
-                            <Text c="teal" fw={600} size="sm">Thành công</Text>
-                          )}
-                          {r.status === 'error' && (
-                            <Text c="red" fw={600} size="sm">Lỗi</Text>
-                          )}
-                        </Table.Td>
-                        <Table.Td>
-                          {r.status === 'error' ? (
-                            <Text c="dimmed" size="xs">{r.error}</Text>
-                          ) : (
-                            <a href={r.fileUrl} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--mantine-color-indigo-filled)', fontWeight: 600, fontSize: '14px' }}>
-                              🔗 Mở Sheet
-                            </a>
-                          )}
-                        </Table.Td>
-                      </Table.Tr>
-                    ))}
-                  </Table.Tbody>
-                </Table>
-              </Paper>
-            )}
+            <ProgressLog loading={ieStream.loading} progress={ieStream.progress} logs={ieStream.logs} isDone={ieStream.isDone} />
           </Tabs.Panel>
 
           <Tabs.Panel value="insert-target-url">
@@ -806,44 +618,11 @@ export default function ToolsTab() {
               mb="md"
             />
 
-            <Button variant="filled" color="teal" radius="md" size="md" leftSection={<IconTargetArrow size={16} />} onClick={handleInsertTargetUrl} loading={loading} mb="xl">
+            <Button variant="filled" color="teal" radius="md" size="md" leftSection={<IconTargetArrow size={16} />} onClick={handleInsertTargetUrl} loading={ituStream.loading} mb="md">
               Bắt đầu điền Target URL
             </Button>
 
-            {ituResults.length > 0 && (
-              <Paper shadow="xs" p="md" radius="md" withBorder>
-                <Text fw={600} size="sm" mb="md">Kết quả ({ituResults.length} URL):</Text>
-                <Table striped withTableBorder>
-                  <Table.Thead>
-                    <Table.Tr>
-                      <Table.Th>URL đã điền</Table.Th>
-                      <Table.Th>Trạng thái</Table.Th>
-                      <Table.Th>Liên kết Sheet</Table.Th>
-                    </Table.Tr>
-                  </Table.Thead>
-                  <Table.Tbody>
-                    {ituResults.map((r, i) => (
-                      <Table.Tr key={i}>
-                        <Table.Td style={{ wordBreak: 'break-all', maxWidth: 360 }}>{r.url}</Table.Td>
-                        <Table.Td>
-                          {r.status === 'success' && <Text c="teal" fw={600} size="sm">Thành công</Text>}
-                          {r.status === 'error' && <Text c="red" fw={600} size="sm">Lỗi</Text>}
-                        </Table.Td>
-                        <Table.Td>
-                          {r.status === 'error' ? (
-                            <Text c="dimmed" size="xs">{r.error}</Text>
-                          ) : (
-                            <a href={r.fileUrl} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--mantine-color-teal-filled)', fontWeight: 600, fontSize: '14px' }}>
-                              🔗 Mở Sheet
-                            </a>
-                          )}
-                        </Table.Td>
-                      </Table.Tr>
-                    ))}
-                  </Table.Tbody>
-                </Table>
-              </Paper>
-            )}
+            <ProgressLog loading={ituStream.loading} progress={ituStream.progress} logs={ituStream.logs} isDone={ituStream.isDone} />
           </Tabs.Panel>
         </Paper>
       </Tabs>
