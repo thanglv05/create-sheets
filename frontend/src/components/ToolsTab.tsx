@@ -486,10 +486,9 @@ export default function ToolsTab() {
             </SimpleGrid>
             
             <Textarea label="Danh sách URLs" placeholder="Nhập danh sách URL cần cập nhật, mỗi URL một dòng..." rows={6} required mb="md" value={usUrls} onChange={e => setUsUrls(e.target.value)} />
-            <Button variant="filled" color="indigo" radius="md" leftSection={<IconTag size={16} />} onClick={updateStatus} loading={usStream.loading} mb="md">
+            <Button variant="filled" color="indigo" radius="md" leftSection={<IconTag size={16} />} onClick={updateStatus} loading={loading}>
               Cập nhật trạng thái
             </Button>
-            <ProgressLog loading={usStream.loading} progress={usStream.progress} logs={usStream.logs} isDone={usStream.isDone} />
           </Tabs.Panel>
 
           <Tabs.Panel value="scrape-info">
