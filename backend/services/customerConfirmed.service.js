@@ -18,10 +18,12 @@ async function runCustomerConfirmed({ sourceSheetId, sheetName, folderId, log = 
   const rows = await readRange(sourceSheetId, `${sheetName}!H2:M`);
   log("info", `📊 Tổng dòng: ${rows.length}`);
 
-  // 2. Liệt kê file trong folder Drive
-  log("info", `📁 Lấy danh sách files trong folder...`);
-  const files = await listFiles(folderId);
-  log("info", `📁 Tổng files: ${files.length}`);
+  // 2. Liệt kê file trong folder Drive & toàn bộ Drive (kể cả file được share)
+  log("info", `📁 Lấy danh sách files trong folder và file được share...`);
+  const folderFiles = await listFiles(folderId);
+  const sharedFiles = await listFiles(null);
+  const files = Array.from(new Map([...folderFiles, ...sharedFiles].map(f => [f.id, f])).values());
+  log("info", `📁 Tổng files tìm thấy: ${files.length}`);
 
   // map normalized name → URL
   const fileMap = {};
